@@ -24,24 +24,51 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   final Map<int, bool> _remindOptions = {1: false, 3: false, 5: false};
 
   // DATE
-  Future<void> _pickDate(bool isStart) async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
+  Future<DateTime?> _pickDateTime() async {
+    final date = await showDatePicker(
       context: context,
-      initialDate: now,
-      firstDate: DateTime(now.year - 1),
-      lastDate: DateTime(now.year + 5),
+      initialDate: DateTime.now(),
+      firstDate: DateTime.now().subtract(const Duration(days: 1)),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
     );
 
-    if (picked != null) {
-      setState(() {
-        if (isStart) {
-          _startAt = picked;
-        } else {
-          _dueAt = picked;
-        }
-      });
-    }
+    if (date == null) return null;
+
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+      initialEntryMode: TimePickerEntryMode.input,
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+          child: child!,
+        );
+      },
+    );
+
+    if (time == null) return null;
+
+    return DateTime(date.year, date.month, date.day, time.hour, time.minute);
+  }
+
+  //  PICK START / DUE DATE
+  Future<void> _pickStartDateTime() async {
+    final picked = await _pickDateTime();
+    if (picked == null) return;
+
+    setState(() {
+      _startAt = picked;
+    });
+  }
+
+  //PICK DEADLINE
+  Future<void> _pickDeadlineDateTime() async {
+    final picked = await _pickDateTime();
+    if (picked == null) return;
+
+    setState(() {
+      _dueAt = picked;
+    });
   }
 
   // SUBMIT
@@ -54,7 +81,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     }
 
     if (_dueAt!.isBefore(_startAt!)) {
-      _showError('Ngày kết thúc phải >= ngày bắt đầu');
+      _showError('Deadline phải sau ngày bắt đầu');
       return;
     }
 
@@ -136,22 +163,22 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => _pickDate(true),
+                      onPressed: _pickStartDateTime,
                       child: Text(
                         _startAt == null
                             ? 'Ngày bắt đầu'
-                            : _startAt!.toString().split(' ')[0],
+                            : _startAt!.toString().substring(0, 16),
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => _pickDate(false),
+                      onPressed: _pickDeadlineDateTime,
                       child: Text(
                         _dueAt == null
                             ? 'Ngày kết thúc'
-                            : _dueAt!.toString().split(' ')[0],
+                            : _dueAt!.toString().substring(0, 16),
                       ),
                     ),
                   ),
