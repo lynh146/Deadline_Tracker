@@ -3,6 +3,7 @@ import '../calendar/calendar_screen.dart';
 import '../add_task/add_task_screen.dart';
 import '../stats/stats_screen.dart';
 import '../profile/profile_screen.dart';
+import '../../services/task_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -106,8 +107,28 @@ class _NavItem extends StatelessWidget {
   }
 }
 
-class _HomeTab extends StatelessWidget {
+// test
+class _HomeTab extends StatefulWidget {
   const _HomeTab();
+
+  @override
+  State<_HomeTab> createState() => _HomeTabState();
+}
+
+class _HomeTabState extends State<_HomeTab> {
+  @override
+  void initState() {
+    super.initState();
+    _testDb();
+  }
+
+  Future<void> _testDb() async {
+    final tasks = await TaskService.getAllTasks();
+    print('TASKS IN DB: ${tasks.length}');
+    for (final t in tasks) {
+      print('• ${t.title}');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
