@@ -18,7 +18,6 @@ class TaskService {
     final db = await AppDatabase.database;
 
     return await db.transaction((txn) async {
-      // insert task
       final taskId = await txn.insert('tasks', {
         'title': task.title,
         'description': task.description,
@@ -31,7 +30,6 @@ class TaskService {
         'updatedAt': DateTime.now().millisecondsSinceEpoch,
       });
 
-      // insert reminders
       for (final r in task.remindAt) {
         await txn.insert('reminders', {
           'taskId': taskId,
@@ -55,7 +53,7 @@ class TaskService {
         description: e['description'] as String,
         startAt: DateTime.fromMillisecondsSinceEpoch(e['startAt'] as int),
         dueAt: DateTime.fromMillisecondsSinceEpoch(e['dueAt'] as int),
-        remindAt: [], // reminder load riêng
+        remindAt: const [],
         priority: e['priority'] as int,
         progress: e['progress'] as int,
         status: e['status'] as int,
@@ -77,7 +75,8 @@ class TaskService {
       return Reminder(
         id: e['id'] as int,
         taskId: e['taskId'] as int,
-        remindAt: DateTime.fromMillisecondsSinceEpoch(e['remindAt'] as int),
+        remindAt:
+        DateTime.fromMillisecondsSinceEpoch(e['remindAt'] as int),
       );
     }).toList();
   }
@@ -85,7 +84,6 @@ class TaskService {
   // DELETE TASK + CANCEL ALL REMINDERS
   static Future<void> deleteTask(int taskId) async {
     final db = await AppDatabase.database;
-
     final reminders = await getRemindersByTask(taskId);
 
     for (final r in reminders) {
@@ -93,5 +91,37 @@ class TaskService {
     }
 
     await db.delete('tasks', where: 'id = ?', whereArgs: [taskId]);
+  }
+
+  // GET TASKS BY DATE (FOR CALENDAR)
+  static Future<List<Task>> getTasksByDate(DateTime day) async {
+    final db = await AppDatabase.database;
+
+    final startOfDay = DateTime(day.year, day.month, day.day);
+    final endOfDay = startOfDay.add(const Duration(days: 1));
+
+    final maps = await db.query(
+      'tasks',
+      where: 'startAt >= ? AND startAt < ?',
+      whereArgs: [
+        startOfDay.millisecondsSinceEpoch,
+        endOfDay.millisecondsSinceEpoch,
+      ],
+      orderBy: 'dueAt ASC',
+    );
+
+    return maps.map((e) {
+      return Task(
+        id: e['id'] as int,
+        title: e['title'] as String,
+        description: e['description'] as String,
+        startAt: DateTime.fromMillisecondsSinceEpoch(e['startAt'] as int),
+        dueAt: DateTime.fromMillisecondsSinceEpoch(e['dueAt'] as int),
+        remindAt: const [],
+        priority: e['priority'] as int,
+        progress: e['progress'] as int,
+        status: e['status'] as int,
+      );
+    }).toList();
   }
 }
