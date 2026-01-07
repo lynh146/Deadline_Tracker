@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../calendar/calendar_screen.dart';
-import '../add_task/add_task_screen.dart';
+import '../task/add_task_screen.dart';
 import '../stats/stats_screen.dart';
 import '../profile/profile_screen.dart';
 import '../../services/task_service.dart';
