@@ -3,6 +3,7 @@ import 'package:table_calendar/table_calendar.dart';
 
 import '../../models/task.dart';
 import '../../services/task_service.dart';
+import '../task/task_detail_screen.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -70,8 +71,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             lastDay: DateTime(2030),
             focusedDay: _focusedDay,
             calendarFormat: CalendarFormat.month,
-            selectedDayPredicate: (day) =>
-                isSameDay(_selectedDay, day),
+            selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
 
             // MARK DAYS WITH TASKS
             eventLoader: (day) {
@@ -95,33 +95,43 @@ class _CalendarScreenState extends State<CalendarScreen> {
             child: _tasksOfDay.isEmpty
                 ? const Center(child: Text('Không có task'))
                 : ListView.builder(
-              itemCount: _tasksOfDay.length,
-              itemBuilder: (context, index) {
-                final task = _tasksOfDay[index];
+                    itemCount: _tasksOfDay.length,
+                    itemBuilder: (context, index) {
+                      final task = _tasksOfDay[index];
 
-                return Card(
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
+                      return Card(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        child: ListTile(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    TaskDetailScreen(taskId: task.id!),
+                              ),
+                            );
+                          },
+
+                          title: Text(task.title),
+                          subtitle: Text(
+                            'Due: ${task.dueAt.toString().substring(0, 16)}',
+                          ),
+                          leading: Icon(
+                            Icons.circle,
+                            size: 12,
+                            color: task.priority == 1
+                                ? Colors.red
+                                : task.priority == 2
+                                ? Colors.orange
+                                : Colors.green,
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                  child: ListTile(
-                    title: Text(task.title),
-                    subtitle: Text(
-                      'Due: ${task.dueAt.toString().substring(0, 16)}',
-                    ),
-                    leading: Icon(
-                      Icons.circle,
-                      size: 12,
-                      color: task.priority == 1
-                          ? Colors.red
-                          : task.priority == 2
-                          ? Colors.orange
-                          : Colors.green,
-                    ),
-                  ),
-                );
-              },
-            ),
           ),
         ],
       ),

@@ -4,23 +4,32 @@ import '../task/add_task_screen.dart';
 import '../stats/stats_screen.dart';
 import '../profile/profile_screen.dart';
 import '../../services/task_service.dart';
+import '../../core/theme/app_colors.dart';
+import 'home_tab.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final int initialIndex;
+  const HomeScreen({super.key, this.initialIndex = 0});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _index = 0;
+  late int _index;
 
   final List<Widget> _tabs = const [
-    _HomeTab(),
+    HomeTab(),
     CalendarScreen(),
     StatsScreen(),
     ProfileScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _index = widget.initialIndex;
+  }
 
   void _onFabTap() {
     Navigator.of(
@@ -32,45 +41,64 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: _tabs[_index],
-      floatingActionButton: FloatingActionButton(
-        onPressed: _onFabTap,
-        child: const Icon(Icons.add),
+
+      floatingActionButton: SizedBox(
+        width: 56,
+        height: 56,
+        child: FloatingActionButton(
+          onPressed: _onFabTap,
+          backgroundColor: AppColors.primary,
+          shape: const CircleBorder(),
+          child: const Icon(Icons.add, color: Colors.white, size: 28),
+        ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: BottomAppBar(
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 8,
-        child: SizedBox(
-          height: 60,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _NavItem(
-                icon: Icons.home,
-                label: 'Home',
-                active: _index == 0,
-                onTap: () => setState(() => _index = 0),
+
+      bottomNavigationBar: ClipRRect(
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(18),
+          topRight: Radius.circular(18),
+        ),
+        child: BottomAppBar(
+          color: Colors.white,
+          elevation: 8,
+          shape: const CircularNotchedRectangle(),
+          notchMargin: 10,
+          child: SafeArea(
+            top: false,
+            child: SizedBox(
+              height: 70,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _NavItem(
+                    icon: Icons.home,
+                    label: 'Home',
+                    active: _index == 0,
+                    onTap: () => setState(() => _index = 0),
+                  ),
+                  _NavItem(
+                    icon: Icons.calendar_month,
+                    label: 'Calendar',
+                    active: _index == 1,
+                    onTap: () => setState(() => _index = 1),
+                  ),
+                  const SizedBox(width: 40),
+                  _NavItem(
+                    icon: Icons.bar_chart,
+                    label: 'Stats',
+                    active: _index == 2,
+                    onTap: () => setState(() => _index = 2),
+                  ),
+                  _NavItem(
+                    icon: Icons.person_outline,
+                    label: 'Profile',
+                    active: _index == 3,
+                    onTap: () => setState(() => _index = 3),
+                  ),
+                ],
               ),
-              _NavItem(
-                icon: Icons.calendar_month,
-                label: 'Calendar',
-                active: _index == 1,
-                onTap: () => setState(() => _index = 1),
-              ),
-              const SizedBox(width: 40),
-              _NavItem(
-                icon: Icons.bar_chart,
-                label: 'Stats',
-                active: _index == 2,
-                onTap: () => setState(() => _index = 2),
-              ),
-              _NavItem(
-                icon: Icons.person,
-                label: 'Profile',
-                active: _index == 3,
-                onTap: () => setState(() => _index = 3),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -93,15 +121,20 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = active ? Colors.blue : Colors.grey;
+    final color = active ? AppColors.primary : Colors.grey;
     return InkWell(
       onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: color),
-          Text(label, style: TextStyle(color: color, fontSize: 12)),
-        ],
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color, size: 24),
+            const SizedBox(height: 2),
+            Text(label, style: TextStyle(color: color, fontSize: 11)),
+          ],
+        ),
       ),
     );
   }

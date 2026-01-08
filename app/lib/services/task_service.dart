@@ -75,8 +75,7 @@ class TaskService {
       return Reminder(
         id: e['id'] as int,
         taskId: e['taskId'] as int,
-        remindAt:
-        DateTime.fromMillisecondsSinceEpoch(e['remindAt'] as int),
+        remindAt: DateTime.fromMillisecondsSinceEpoch(e['remindAt'] as int),
       );
     }).toList();
   }
@@ -123,5 +122,31 @@ class TaskService {
         status: e['status'] as int,
       );
     }).toList();
+  }
+
+  static Future<Task?> getTaskById(int taskId) async {
+    final db = await AppDatabase.database;
+
+    final maps = await db.query(
+      'tasks',
+      where: 'id = ?',
+      whereArgs: [taskId],
+      limit: 1,
+    );
+
+    if (maps.isEmpty) return null;
+
+    final e = maps.first;
+    return Task(
+      id: e['id'] as int,
+      title: e['title'] as String,
+      description: (e['description'] as String?) ?? '',
+      startAt: DateTime.fromMillisecondsSinceEpoch(e['startAt'] as int),
+      dueAt: DateTime.fromMillisecondsSinceEpoch(e['dueAt'] as int),
+      remindAt: const [],
+      priority: e['priority'] as int,
+      progress: e['progress'] as int,
+      status: e['status'] as int,
+    );
   }
 }
