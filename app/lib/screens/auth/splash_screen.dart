@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/theme/app_colors.dart';
 import '../../services/auth_service.dart';
-import '../home/app_shell.dart';
+import '../../core/navigation/main_scaffold.dart';
 import 'signin_screen.dart';
 import 'signup_screen.dart';
 
@@ -41,7 +41,7 @@ class SplashScreen extends StatelessWidget {
           return const SignInScreen(showVerifyMessage: true);
         }
 
-        return const AppShell();
+        return const MainScaffold();
       },
     );
   }
