@@ -1,23 +1,30 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  // Background all pages
-  static const bg = Color(0xFFE1D0FF);
+  AppColors._();
 
-  // Big container / card
-  static const cardBig = Color(0xFFF3ECFF);
+  //GRADIENT HEADER
+  static const Color purpleStart = Color(0xFF7D26EB);
+  static const Color purpleEnd = Color(0xFF6331B3);
 
-  // Primary / Danger
-  static const primary = Color(0xFF7D26EB);
-  static const danger = Color(0xFFFD0E0E);
+  // PRIMARY BUTTON
+  static const Color primary = Color(0xFF6A0DAD);
+  static const Color disabled = Color(0xFFDADADA);
 
-  // Text / Small boxes
-  static const dateText = Color(0xFF6A0DAD);
-  static const progressBox = Color(0xFFEDE3FF);
+  //BACKGROUND
+  static const Color surface = Color(0xFFF8F8FF);
+  static const Color white = Color(0xFFFFFFFF);
 
-  // Progress color (medium)
-  static const medium = Color(0xFFF5F90B);
+  //TEXT
+  static const Color textOnPurple = Color(0xFFFFFFFF);
+  static const Color textHint = Color(0xFFBDBDBD);
+  static const Color textGrey = Color(0xFF9E9E9E);
 
-  // Neutral
-  static const barBg = Color(0xFFE5E7EB);
+  // BORDER / DIVIDER
+  static const Color border = Color(0xFFEAEAEA);
+  static const Color divider = Color(0xFFE6E6E6);
+
+  //SOCIAL
+  static const Color facebook = Color(0xFF1877F2);
+  static const Color google = Color(0xFFDB4437);
 }
