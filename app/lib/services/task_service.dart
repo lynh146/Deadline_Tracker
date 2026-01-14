@@ -1,21 +1,19 @@
 import '../models/deadline_task.dart';
 import '../repositories/task_repository.dart';
 
-/// Service = LOGIC NGHIỆP VỤ
-///
-/// - Mỗi màn hình gọi Service
-/// - Service gọi Repository
-/// - UI KHÔNG ĐƯỢC query Firebase
+// Service = LOGIC NGHIỆP VỤ
+//
+// - Mỗi màn hình gọi Service
+// - Service gọi Repository
+// - UI KHÔNG ĐƯỢC query Firebase
 class TaskService {
   TaskService(this._repo);
 
   final TaskRepository _repo;
 
-  /// =========================
-  /// HOME
-  /// =========================
+  // HOME
 
-  /// Task tới hạn HÔM NAY
+  //Task tới hạn HÔM NAY
   Future<List<Task>> getTodayTasks(String userId) async {
     final all = await _repo.getTasksByUser(userId);
 
@@ -34,7 +32,7 @@ class TaskService {
       ..sort((a, b) => a.dueAt.compareTo(b.dueAt));
   }
 
-  /// Tổng task trong TUẦN (Home – ô thống kê)
+  // Tổng task trong TUẦN (Home – ô thống kê)
   Future<int> getWeeklyTasks(String userId) async {
     final all = await _repo.getTasksByUser(userId);
 
@@ -48,11 +46,9 @@ class TaskService {
     }).length;
   }
 
-  /// =========================
-  /// CALENDAR
-  /// =========================
+  //CALENDAR
 
-  /// Task theo NGÀY (Calendar Week)
+  // Task theo NGÀY (Calendar Week)
   Future<List<Task>> getTasksByDate(String userId, DateTime day) async {
     final all = await _repo.getTasksByUser(userId);
 
@@ -65,9 +61,7 @@ class TaskService {
       ..sort((a, b) => a.dueAt.compareTo(b.dueAt));
   }
 
-  /// =========================
-  /// STATS / STATUS
-  /// =========================
+  //STATS / STATUS
 
   List<Task> filterCompleted(List<Task> tasks) =>
       tasks.where((t) => t.isCompleted).toList();
@@ -77,4 +71,14 @@ class TaskService {
 
   List<Task> filterInProgress(List<Task> tasks) =>
       tasks.where((t) => t.isInProgress).toList();
+
+  // CREATE TASK
+  Future<void> createTask({required String userId, required Task task}) async {
+    // VALIDATE NGHIỆP VỤ
+    if (task.dueAt.isBefore(task.startAt)) {
+      throw Exception('End date must be after start date');
+    }
+
+    await _repo.addTask(userId: userId, task: task);
+  }
 }

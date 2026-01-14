@@ -5,8 +5,8 @@ import '../models/deadline_task.dart';
 /// - Đọc dữ liệu từ Firestore
 /// - Map Firestore → Task model
 ///
-/// ❌ KHÔNG xử lý logic hôm nay / tuần
-/// ❌ KHÔNG sort theo UI
+/// KHÔNG xử lý logic hôm nay / tuần
+/// KHÔNG sort theo UI
 class TaskRepository {
   final _db = FirebaseFirestore.instance;
 
@@ -25,7 +25,7 @@ class TaskRepository {
     final data = doc.data() as Map<String, dynamic>;
 
     return Task(
-      id: null, // Firestore dùng doc.id, không cần int id
+      id: null,
       title: data['title'] ?? '',
       description: data['description'] ?? '',
       startAt: (data['startAt'] as Timestamp).toDate(),
@@ -35,5 +35,20 @@ class TaskRepository {
           .toList(),
       progress: data['progress'] ?? 0,
     );
+  }
+
+  /// CREATE
+  Future<void> addTask({required String userId, required Task task}) async {
+    await _db.collection('tasks').add({
+      'userId': userId,
+      'title': task.title,
+      'description': task.description,
+      'startAt': Timestamp.fromDate(task.startAt),
+      'dueAt': Timestamp.fromDate(task.dueAt),
+      'remindAt': task.remindAt.map((e) => Timestamp.fromDate(e)).toList(),
+      'progress': task.progress,
+      'createdAt': Timestamp.now(),
+      'updatedAt': Timestamp.now(),
+    });
   }
 }
