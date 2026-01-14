@@ -1,6 +1,7 @@
 import '../models/deadline_task.dart';
 import '../repositories/task_repository.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'notification_service.dart';
 
 // Service = LOGIC NGHIỆP VỤ
 //
@@ -110,6 +111,23 @@ class TaskService {
     }
 
     await _repo.addTask(userId: userId, task: task);
+    // NOTIFICATION – deadline
+    await NotificationService.instance.schedule(
+      id: task.hashCode,
+      title: 'Deadline tới hạn',
+      body: task.title,
+      time: task.dueAt,
+    );
+
+    //  NOTIFICATION – reminder
+    for (final remindTime in task.remindAt) {
+      await NotificationService.instance.schedule(
+        id: remindTime.hashCode,
+        title: 'Nhắc việc',
+        body: task.title,
+        time: remindTime,
+      );
+    }
     // ANALYTICS
     await _analytics.logEvent(
       name: 'create_task',
@@ -125,6 +143,26 @@ class TaskService {
     }
 
     await _repo.updateTask(docId: docId, task: task);
+    // CANCEL notification cũ
+    await NotificationService.instance.cancel(task.hashCode);
+
+    // RESCHEDULE deadline mới
+    await NotificationService.instance.schedule(
+      id: task.hashCode,
+      title: 'Deadline cập nhật',
+      body: task.title,
+      time: task.dueAt,
+    );
+
+    // RESCHEDULE reminder
+    for (final remindTime in task.remindAt) {
+      await NotificationService.instance.schedule(
+        id: remindTime.hashCode,
+        title: 'Nhắc việc',
+        body: task.title,
+        time: remindTime,
+      );
+    }
 
     //ANALYTICS: khi task hoàn thành
     if (task.progress == 100) {
@@ -136,8 +174,11 @@ class TaskService {
   }
 
   // DELETE TASK
-  Future<void> deleteTask(String docId) async {
+  Future<void> deleteTask(String docId, Task task) async {
     await _repo.deleteTask(docId);
+    // CANCEL notification
+    await NotificationService.instance.cancel(task.hashCode);
+
     //ANALYTICS
     await _analytics.logEvent(name: 'delete_task');
   }
