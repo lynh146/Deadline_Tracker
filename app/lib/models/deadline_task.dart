@@ -41,22 +41,18 @@ class Task {
   /// Danh sách thời điểm nhắc nhở
   final List<DateTime> remindAt;
 
-  /// Độ ưu tiên (1–5 hoặc tuỳ app)
-  final int priority;
-
   /// Tiến độ hoàn thành (%)
   /// 0 → 100
   final int progress;
 
   const Task({
-    this.id,
+    required this.id,
     required this.title,
     required this.description,
     required this.startAt,
     required this.dueAt,
     required this.remindAt,
-    required this.priority,
-    this.progress = 0,
+    required this.progress,
   });
 
   /// TÍNH TRẠNG THÁI TASK
@@ -113,6 +109,7 @@ class Task {
   String toString() {
     return '''
 Task(
+  id: $id,
   title: $title,
   startAt: $startAt,
   dueAt: $dueAt,

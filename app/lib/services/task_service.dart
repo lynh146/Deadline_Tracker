@@ -1,152 +1,80 @@
-import '../models/task.dart';
-import '../models/reminder.dart';
-import '../core/database/app_database.dart';
-import 'notification_service.dart';
+import '../models/deadline_task.dart';
+import '../repositories/task_repository.dart';
 
+/// Service = LOGIC NGHIỆP VỤ
+///
+/// - Mỗi màn hình gọi Service
+/// - Service gọi Repository
+/// - UI KHÔNG ĐƯỢC query Firebase
 class TaskService {
-  // STATUS LOGIC
-  static int _calcStatus(DateTime dueAt) {
+  TaskService(this._repo);
+
+  final TaskRepository _repo;
+
+  /// =========================
+  /// HOME
+  /// =========================
+
+  /// Task tới hạn HÔM NAY
+  Future<List<Task>> getTodayTasks(String userId) async {
+    final all = await _repo.getTasksByUser(userId);
+
     final now = DateTime.now();
+    final startDay = DateTime(now.year, now.month, now.day);
+    final endDay = startDay.add(const Duration(days: 1));
 
-    if (dueAt.isBefore(now)) return 2; // overdue
-    if (dueAt.difference(now).inHours <= 48) return 1; // due soon
-    return 0; // upcoming
+    return all
+        .where(
+          (t) =>
+              t.dueAt.isAfter(startDay) &&
+              t.dueAt.isBefore(endDay) &&
+              !t.isCompleted,
+        )
+        .toList()
+      ..sort((a, b) => a.dueAt.compareTo(b.dueAt));
   }
 
-  // ADD TASK + REMINDERS (TRANSACTION)
-  static Future<int> addTask(Task task) async {
-    final db = await AppDatabase.database;
+  /// Tổng task trong TUẦN (Home – ô thống kê)
+  Future<int> getWeeklyTasks(String userId) async {
+    final all = await _repo.getTasksByUser(userId);
 
-    return await db.transaction((txn) async {
-      final taskId = await txn.insert('tasks', {
-        'title': task.title,
-        'description': task.description,
-        'startAt': task.startAt.millisecondsSinceEpoch,
-        'dueAt': task.dueAt.millisecondsSinceEpoch,
-        'priority': task.priority,
-        'progress': task.progress,
-        'status': _calcStatus(task.dueAt),
-        'createdAt': DateTime.now().millisecondsSinceEpoch,
-        'updatedAt': DateTime.now().millisecondsSinceEpoch,
-      });
+    final now = DateTime.now();
+    final endWeek = now.add(const Duration(days: 7));
 
-      for (final r in task.remindAt) {
-        await txn.insert('reminders', {
-          'taskId': taskId,
-          'remindAt': r.millisecondsSinceEpoch,
-        });
-      }
-
-      return taskId;
-    });
+    return all.where((t) {
+      return t.dueAt.isAfter(now) &&
+          t.dueAt.isBefore(endWeek) &&
+          !t.isCompleted;
+    }).length;
   }
 
-  // GET ALL TASKS
-  static Future<List<Task>> getAllTasks() async {
-    final db = await AppDatabase.database;
-    final maps = await db.query('tasks');
+  /// =========================
+  /// CALENDAR
+  /// =========================
 
-    return maps.map((e) {
-      return Task(
-        id: e['id'] as int,
-        title: e['title'] as String,
-        description: e['description'] as String,
-        startAt: DateTime.fromMillisecondsSinceEpoch(e['startAt'] as int),
-        dueAt: DateTime.fromMillisecondsSinceEpoch(e['dueAt'] as int),
-        remindAt: const [],
-        priority: e['priority'] as int,
-        progress: e['progress'] as int,
-        status: e['status'] as int,
-      );
-    }).toList();
+  /// Task theo NGÀY (Calendar Week)
+  Future<List<Task>> getTasksByDate(String userId, DateTime day) async {
+    final all = await _repo.getTasksByUser(userId);
+
+    final start = DateTime(day.year, day.month, day.day);
+    final end = start.add(const Duration(days: 1));
+
+    return all
+        .where((t) => t.dueAt.isAfter(start) && t.dueAt.isBefore(end))
+        .toList()
+      ..sort((a, b) => a.dueAt.compareTo(b.dueAt));
   }
 
-  // GET REMINDERS BY TASK
-  static Future<List<Reminder>> getRemindersByTask(int taskId) async {
-    final db = await AppDatabase.database;
+  /// =========================
+  /// STATS / STATUS
+  /// =========================
 
-    final maps = await db.query(
-      'reminders',
-      where: 'taskId = ?',
-      whereArgs: [taskId],
-    );
+  List<Task> filterCompleted(List<Task> tasks) =>
+      tasks.where((t) => t.isCompleted).toList();
 
-    return maps.map((e) {
-      return Reminder(
-        id: e['id'] as int,
-        taskId: e['taskId'] as int,
-        remindAt: DateTime.fromMillisecondsSinceEpoch(e['remindAt'] as int),
-      );
-    }).toList();
-  }
+  List<Task> filterOverdue(List<Task> tasks) =>
+      tasks.where((t) => t.isOverdue).toList();
 
-  // DELETE TASK + CANCEL ALL REMINDERS
-  static Future<void> deleteTask(int taskId) async {
-    final db = await AppDatabase.database;
-    final reminders = await getRemindersByTask(taskId);
-
-    for (final r in reminders) {
-      await NotificationService.cancel(r.id);
-    }
-
-    await db.delete('tasks', where: 'id = ?', whereArgs: [taskId]);
-  }
-
-  // GET TASKS BY DATE (FOR CALENDAR)
-  static Future<List<Task>> getTasksByDate(DateTime day) async {
-    final db = await AppDatabase.database;
-
-    final startOfDay = DateTime(day.year, day.month, day.day);
-    final endOfDay = startOfDay.add(const Duration(days: 1));
-
-    final maps = await db.query(
-      'tasks',
-      where: 'startAt >= ? AND startAt < ?',
-      whereArgs: [
-        startOfDay.millisecondsSinceEpoch,
-        endOfDay.millisecondsSinceEpoch,
-      ],
-      orderBy: 'dueAt ASC',
-    );
-
-    return maps.map((e) {
-      return Task(
-        id: e['id'] as int,
-        title: e['title'] as String,
-        description: e['description'] as String,
-        startAt: DateTime.fromMillisecondsSinceEpoch(e['startAt'] as int),
-        dueAt: DateTime.fromMillisecondsSinceEpoch(e['dueAt'] as int),
-        remindAt: const [],
-        priority: e['priority'] as int,
-        progress: e['progress'] as int,
-        status: e['status'] as int,
-      );
-    }).toList();
-  }
-
-  static Future<Task?> getTaskById(int taskId) async {
-    final db = await AppDatabase.database;
-
-    final maps = await db.query(
-      'tasks',
-      where: 'id = ?',
-      whereArgs: [taskId],
-      limit: 1,
-    );
-
-    if (maps.isEmpty) return null;
-
-    final e = maps.first;
-    return Task(
-      id: e['id'] as int,
-      title: e['title'] as String,
-      description: (e['description'] as String?) ?? '',
-      startAt: DateTime.fromMillisecondsSinceEpoch(e['startAt'] as int),
-      dueAt: DateTime.fromMillisecondsSinceEpoch(e['dueAt'] as int),
-      remindAt: const [],
-      priority: e['priority'] as int,
-      progress: e['progress'] as int,
-      status: e['status'] as int,
-    );
-  }
+  List<Task> filterInProgress(List<Task> tasks) =>
+      tasks.where((t) => t.isInProgress).toList();
 }
