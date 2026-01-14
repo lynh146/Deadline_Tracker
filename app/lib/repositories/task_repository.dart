@@ -1,16 +1,16 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/deadline_task.dart';
 
-/// Repository CHỈ LÀM 1 VIỆC:
-/// - Đọc dữ liệu từ Firestore
-/// - Map Firestore → Task model
-///
-/// KHÔNG xử lý logic hôm nay / tuần
-/// KHÔNG sort theo UI
+// Repository CHỈ LÀM 1 VIỆC:
+// - Đọc dữ liệu từ Firestore
+// - Map Firestore → Task model
+// - Trả về Task model cho Service xử lý
+// KHÔNG xử lý logic hôm nay / tuần
+// KHÔNG sort theo UI
 class TaskRepository {
   final _db = FirebaseFirestore.instance;
 
-  /// Lấy TẤT CẢ task của 1 user
+  // Lấy TẤT CẢ task của 1 user
   Future<List<Task>> getTasksByUser(String userId) async {
     final snapshot = await _db
         .collection('tasks')
@@ -20,7 +20,7 @@ class TaskRepository {
     return snapshot.docs.map(_fromDoc).toList();
   }
 
-  /// Map Firestore Document → Task
+  // Map Firestore Document → Task
   Task _fromDoc(QueryDocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
 
@@ -37,7 +37,7 @@ class TaskRepository {
     );
   }
 
-  /// CREATE
+  // CREATE
   Future<void> addTask({required String userId, required Task task}) async {
     await _db.collection('tasks').add({
       'userId': userId,
@@ -50,5 +50,23 @@ class TaskRepository {
       'createdAt': Timestamp.now(),
       'updatedAt': Timestamp.now(),
     });
+  }
+
+  // UPDATE
+  Future<void> updateTask({required String docId, required Task task}) async {
+    await _db.collection('tasks').doc(docId).update({
+      'title': task.title,
+      'description': task.description,
+      'startAt': Timestamp.fromDate(task.startAt),
+      'dueAt': Timestamp.fromDate(task.dueAt),
+      'remindAt': task.remindAt.map((e) => Timestamp.fromDate(e)).toList(),
+      'progress': task.progress,
+      'updatedAt': Timestamp.now(),
+    });
+  }
+
+  // DELETE
+  Future<void> deleteTask(String docId) async {
+    await _db.collection('tasks').doc(docId).delete();
   }
 }

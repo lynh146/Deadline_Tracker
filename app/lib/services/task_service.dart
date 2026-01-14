@@ -81,4 +81,19 @@ class TaskService {
 
     await _repo.addTask(userId: userId, task: task);
   }
+
+  //UPDATE TASK
+  Future<void> updateTask({required String docId, required Task task}) async {
+    // Validate ngày
+    if (task.dueAt.isBefore(task.startAt)) {
+      throw Exception('End date must be after start date');
+    }
+
+    await _repo.updateTask(docId: docId, task: task);
+  }
+
+  // DELETE TASK
+  Future<void> deleteTask(String docId) async {
+    await _repo.deleteTask(docId);
+  }
 }
