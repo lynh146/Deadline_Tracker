@@ -14,6 +14,32 @@ class TaskService {
   final TaskRepository _repo;
   final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
 
+  // ===== HELPER =====
+  DateTime _startOfDay(DateTime d) {
+    return DateTime(d.year, d.month, d.day);
+  }
+
+  DateTime _endOfDay(DateTime d) {
+    return _startOfDay(d).add(const Duration(days: 1));
+  }
+
+  DateTime _startOfWeek(DateTime today) {
+    // Tuần bắt đầu từ Thứ 2
+    return _startOfDay(
+      today,
+    ).subtract(Duration(days: today.weekday - DateTime.monday));
+  }
+
+  DateTime _endOfWeek(DateTime today) {
+    // Exclusive: Thứ 2 tuần sau
+    return _startOfWeek(today).add(const Duration(days: 7));
+  }
+
+  bool _inRange(DateTime x, DateTime start, DateTime endExclusive) {
+    // start <= x < endExclusive
+    return !x.isBefore(start) && x.isBefore(endExclusive);
+  }
+
   // HOME
 
   //Task tới hạn HÔM NAY
@@ -21,16 +47,11 @@ class TaskService {
     final all = await _repo.getTasksByUser(userId);
 
     final now = DateTime.now();
-    final startDay = DateTime(now.year, now.month, now.day);
-    final endDay = startDay.add(const Duration(days: 1));
+    final startToday = _startOfDay(now);
+    final endToday = _endOfDay(now);
 
     return all
-        .where(
-          (t) =>
-              t.dueAt.isAfter(startDay) &&
-              t.dueAt.isBefore(endDay) &&
-              !t.isCompleted,
-        )
+        .where((t) => _inRange(t.dueAt, startToday, endToday) && !t.isCompleted)
         .toList()
       ..sort((a, b) => a.dueAt.compareTo(b.dueAt));
   }
@@ -40,12 +61,11 @@ class TaskService {
     final all = await _repo.getTasksByUser(userId);
 
     final now = DateTime.now();
-    final endWeek = now.add(const Duration(days: 7));
+    final startWeek = _startOfWeek(now);
+    final endWeek = _endOfWeek(now);
 
     return all.where((t) {
-      return t.dueAt.isAfter(now) &&
-          t.dueAt.isBefore(endWeek) &&
-          !t.isCompleted;
+      return !t.isCompleted && _inRange(t.dueAt, startWeek, endWeek);
     }).length;
   }
 
