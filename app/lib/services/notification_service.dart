@@ -2,39 +2,104 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest_all.dart' as tz;
 
+// NotificationService
+// - Quản lý TẤT CẢ local notification
+// - App tắt vẫn báo
+// - Không phụ thuộc UI
+// - Được gọi từ TaskService
 class NotificationService {
-  static final _plugin = FlutterLocalNotificationsPlugin();
+  NotificationService._();
+  static final NotificationService instance = NotificationService._();
 
-  static Future<void> init() async {
+  final FlutterLocalNotificationsPlugin _plugin =
+      FlutterLocalNotificationsPlugin();
+
+  // =========================
+  // INIT
+  // =========================
+  Future<void> init() async {
+    // Init timezone
     tz.initializeTimeZones();
-    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-    await _plugin.initialize(const InitializationSettings(android: android));
+
+    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const iosInit = DarwinInitializationSettings();
+
+    const initSettings = InitializationSettings(
+      android: androidInit,
+      iOS: iosInit,
+    );
+
+    await _plugin.initialize(initSettings);
   }
 
-  static Future<void> schedule({
-    required int notificationId,
+  // =========================
+  // SCHEDULE NOTIFICATION
+  // =========================
+  Future<void> schedule({
+    required int id,
     required String title,
-    required DateTime remindAt,
+    required String body,
+    required DateTime time,
   }) async {
+    // Không schedule quá khứ
+    if (time.isBefore(DateTime.now())) return;
+
     await _plugin.zonedSchedule(
-      notificationId,
+      id,
       title,
-      'Deadline sắp đến',
-      tz.TZDateTime.from(remindAt, tz.local),
+      body,
+      tz.TZDateTime.from(time, tz.local),
       const NotificationDetails(
         android: AndroidNotificationDetails(
           'deadline_channel',
-          'Deadline Reminder',
+          'Deadline Notification',
+          channelDescription: 'Nhắc hạn công việc',
           importance: Importance.max,
+          priority: Priority.high,
         ),
+        iOS: DarwinNotificationDetails(),
       ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      androidAllowWhileIdle: true,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
     );
   }
 
-  static Future<void> cancel(int notificationId) async {
-    await _plugin.cancel(notificationId);
+  // =========================
+  // SHOW COMPLETE NOTIFICATION (DAY 6)
+  // =========================
+  Future<void> showComplete({
+    required int id,
+    required String taskTitle,
+  }) async {
+    await _plugin.show(
+      id,
+      '🎉 Hoàn thành công việc',
+      taskTitle,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'complete_channel',
+          'Task Complete',
+          channelDescription: 'Thông báo khi hoàn thành task',
+          importance: Importance.max,
+          priority: Priority.high,
+        ),
+        iOS: DarwinNotificationDetails(),
+      ),
+    );
+  }
+
+  // =========================
+  // CANCEL 1 NOTIFICATION
+  // =========================
+  Future<void> cancel(int id) async {
+    await _plugin.cancel(id);
+  }
+
+  // =========================
+  // CANCEL ALL (OPTIONAL)
+  // =========================
+  Future<void> cancelAll() async {
+    await _plugin.cancelAll();
   }
 }
