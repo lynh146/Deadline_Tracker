@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-
+// ĐÃ XÓA import 'task_item_card.dart' (Fix lỗi uri_does_not_exist)
 import '../../core/theme/app_colors.dart';
 import '../../models/deadline_task.dart';
 import '../../services/task_service.dart';
-import '../../widgets/task_item_card.dart';
 import 'status_list_screen.dart';
 import '../task/task_detail_screen.dart';
 
@@ -11,36 +10,37 @@ class StatsScreen extends StatefulWidget {
   final TaskService taskService;
   final String userId;
 
-  const StatsScreen({Key? key, required this.taskService, required this.userId})
-    : super(key: key);
+  // Fix warning: use_super_parameters
+  const StatsScreen({
+    super.key,
+    required this.taskService,
+    required this.userId,
+  });
 
   @override
   State<StatsScreen> createState() => _StatsScreenState();
 }
 
 class _StatsScreenState extends State<StatsScreen> {
+  // Hàm refresh để reload dữ liệu
+  void _refresh() => setState(() {});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background, // Màu tím nền #E1D0FF
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text(
           "Trạng thái",
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
         ),
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: const BackButton(color: AppColors.textPrimary),
+        leading: const BackButton(color: Colors.black),
         actions: [
           IconButton(
-            icon: const Icon(
-              Icons.notifications_none,
-              color: AppColors.textPrimary,
-            ),
+            icon: const Icon(Icons.notifications_none, color: Colors.black),
             onPressed: () {},
           ),
         ],
@@ -50,12 +50,12 @@ class _StatsScreenState extends State<StatsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // --- 1. GRID 4 Ô TRẠNG THÁI (Đúng mẫu ảnh) ---
+            // --- 1. GRID 4 Ô TRẠNG THÁI ---
             GridView.count(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               crossAxisCount: 2,
-              childAspectRatio: 1.6, // Tỉ lệ chữ nhật dẹt như ảnh
+              childAspectRatio: 1.6,
               mainAxisSpacing: 12,
               crossAxisSpacing: 12,
               children: [
@@ -87,11 +87,11 @@ class _StatsScreenState extends State<StatsScreen> {
             ),
             const SizedBox(height: 20),
 
-            // --- 2. KHUNG "CẦN CHÚ Ý" (Màu tím nhạt) ---
+            // --- 2. KHUNG "CẦN CHÚ Ý" ---
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.detailCard, // Màu #EDE3FF
+                color: AppColors.detailCard,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Column(
@@ -111,7 +111,6 @@ class _StatsScreenState extends State<StatsScreen> {
                       ),
                       GestureDetector(
                         onTap: () {
-                          // Chuyển sang xem tất cả task overdue
                           Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -122,7 +121,7 @@ class _StatsScreenState extends State<StatsScreen> {
                                 userId: widget.userId,
                               ),
                             ),
-                          );
+                          ).then((_) => _refresh());
                         },
                         child: const Text(
                           "Xem tất cả",
@@ -136,7 +135,7 @@ class _StatsScreenState extends State<StatsScreen> {
                   ),
                   const SizedBox(height: 10),
 
-                  // List 2 task overdue demo (Hoặc load từ API)
+                  // Load dữ liệu Overdue từ Service (Lấy 2 cái mới nhất)
                   FutureBuilder<List<Task>>(
                     future: widget.taskService.getOverdueLatest(
                       widget.userId,
@@ -145,56 +144,16 @@ class _StatsScreenState extends State<StatsScreen> {
                     builder: (context, snapshot) {
                       if (!snapshot.hasData || snapshot.data!.isEmpty) {
                         return const Padding(
-                          padding: EdgeInsets.all(8.0),
+                          padding: EdgeInsets.only(top: 8),
                           child: Text(
-                            "Không có task cần chú ý.",
+                            "Không có việc trễ hạn.",
                             style: TextStyle(fontSize: 12, color: Colors.grey),
                           ),
                         );
                       }
                       return Column(
                         children: snapshot.data!
-                            .map(
-                              (t) => Container(
-                                margin: const EdgeInsets.only(bottom: 8),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          t.title,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        Text(
-                                          "Đến hạn ${t.dueAt.day}/${t.dueAt.month}",
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            color: Colors.grey,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    // Logic hiển thị "Còn X giờ" hoặc "Trễ hạn"
-                                    Text(
-                                      t.isOverdue ? "Trễ hạn" : "Sắp đến",
-                                      style: TextStyle(
-                                        color: t.isOverdue
-                                            ? AppColors.danger
-                                            : AppColors.primary,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            )
+                            .map((t) => _buildOverdueRow(t))
                             .toList(),
                       );
                     },
@@ -204,22 +163,16 @@ class _StatsScreenState extends State<StatsScreen> {
             ),
             const SizedBox(height: 20),
 
-            // --- 3. TIẾN ĐỘ CÔNG VIỆC (List bên dưới) ---
+            // --- 3. TIẾN ĐỘ CÔNG VIỆC ---
             const Text(
               "Tiến độ công việc",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
 
             FutureBuilder<List<Task>>(
               future: widget.taskService.getInProgressSorted(widget.userId),
               builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting)
-                  return const Center(child: CircularProgressIndicator());
                 if (!snapshot.hasData || snapshot.data!.isEmpty)
                   return const Text("Chưa có công việc nào.");
 
@@ -229,21 +182,18 @@ class _StatsScreenState extends State<StatsScreen> {
                         (task) => TaskItemCard(
                           task: task,
                           onTap: () {
-                            // Bấm vào item thì sang trang Detail
                             Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (_) => TaskDetailScreen(
                                   task: task,
                                   docId: task.id
-                                      .toString(), // Service dùng String ID
+                                      .toString(), // Chuyển int -> String để tránh lỗi
                                   taskService: widget.taskService,
                                   userId: widget.userId,
                                 ),
                               ),
-                            ).then(
-                              (_) => setState(() {}),
-                            ); // Refresh lại khi quay về
+                            ).then((_) => _refresh());
                           },
                         ),
                       )
@@ -257,7 +207,6 @@ class _StatsScreenState extends State<StatsScreen> {
     );
   }
 
-  // Widget 4 ô vuông
   Widget _buildStatBox(
     String title,
     TaskStatus status,
@@ -280,7 +229,7 @@ class _StatsScreenState extends State<StatsScreen> {
                   userId: widget.userId,
                 ),
               ),
-            );
+            ).then((_) => _refresh());
           },
           child: Container(
             decoration: BoxDecoration(
@@ -288,7 +237,7 @@ class _StatsScreenState extends State<StatsScreen> {
               borderRadius: BorderRadius.circular(15),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black12,
                   blurRadius: 4,
                   offset: const Offset(0, 2),
                 ),
@@ -324,6 +273,149 @@ class _StatsScreenState extends State<StatsScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildOverdueRow(Task t) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => TaskDetailScreen(
+              task: t,
+              docId: t.id.toString(),
+              taskService: widget.taskService,
+              userId: widget.userId,
+            ),
+          ),
+        ).then((_) => _refresh());
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    t.title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                  Text(
+                    "Hết hạn: ${t.dueAt.day}/${t.dueAt.month}",
+                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+            const Text(
+              "Trễ hạn",
+              style: TextStyle(
+                color: AppColors.danger,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ==========================================
+// CLASS TaskItemCard (Nhúng trực tiếp)
+// ==========================================
+class TaskItemCard extends StatelessWidget {
+  final Task task;
+  final VoidCallback onTap;
+
+  // Fix warning: use_super_parameters
+  const TaskItemCard({super.key, required this.task, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    String dayStr = "${task.dueAt.day}/${task.dueAt.month}";
+    String dateStr = task.isOverdue ? "Hết hạn $dayStr" : "Đến hạn: $dayStr";
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 4,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    task.title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                // Bỏ const để tránh lỗi constant value
+                if (task.isCompleted)
+                  Icon(Icons.check_circle, color: AppColors.success, size: 20),
+                if (task.isOverdue)
+                  Icon(Icons.cancel, color: AppColors.danger, size: 20),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              dateStr,
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(5),
+              child: LinearProgressIndicator(
+                value: task.progress / 100,
+                backgroundColor: AppColors.progressBg,
+                valueColor: AlwaysStoppedAnimation<Color>(task.progressColor),
+                minHeight: 6,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                "${task.progress}%",
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
