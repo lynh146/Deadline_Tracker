@@ -83,22 +83,41 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
     }
   }
 
-  Future<void> _selectDate(BuildContext context, bool isStartDate) async {
-    final DateTime? picked = await showDatePicker(
+  Future<void> _selectDateTime(BuildContext context, bool isStartDate) async {
+    final initialDate = isStartDate ? _startDate : _endDate;
+    final DateTime? pickedDate = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
+      initialDate: initialDate ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2101),
     );
-    if (picked != null) {
-      setState(() {
-        if (isStartDate) {
-          _startDate = picked;
-        } else {
-          _endDate = picked;
-        }
-      });
-    }
+
+    if (pickedDate == null) return;
+
+    if (!mounted) return;
+
+    final initialTime = TimeOfDay.fromDateTime(initialDate ?? DateTime.now());
+    final TimeOfDay? pickedTime = await showTimePicker(
+      context: context,
+      initialTime: initialTime,
+    );
+
+    if (pickedTime == null) return;
+
+    setState(() {
+      final selectedDateTime = DateTime(
+        pickedDate.year,
+        pickedDate.month,
+        pickedDate.day,
+        pickedTime.hour,
+        pickedTime.minute,
+      );
+      if (isStartDate) {
+        _startDate = selectedDateTime;
+      } else {
+        _endDate = selectedDateTime;
+      }
+    });
   }
 
   @override
@@ -220,7 +239,7 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
                                 setState(() => _remind5Days = val ?? false),
                           ),
                         ],
-                      ),
+                      ), 
                     ),
                   ),
                 ),
@@ -309,23 +328,33 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
         Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         InkWell(
-          onTap: () => _selectDate(context, isStart),
+          onTap: () => _selectDateTime(context, isStart),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 16),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  date != null
-                      ? '${date.day}/${date.month}/${date.year}'
-                      : 'Chọn ngày',
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  spreadRadius: 1,
+                  blurRadius: 5,
+                  offset: const Offset(0, 2),
                 ),
-                const Icon(Icons.calendar_today_outlined, size: 18),
               ],
+            ),
+            child: Center(
+              child: Text(
+                date != null
+                    ? '${date.day}/${date.month}/${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}'
+                    : 'Chọn ngày & giờ',
+                style: TextStyle(
+                  fontWeight: FontWeight.w500,
+                  fontSize: 15,
+                  color: date != null ? Colors.black87 : Colors.grey.shade600,
+                ),
+              ),
             ),
           ),
         ),
