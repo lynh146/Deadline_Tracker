@@ -56,6 +56,18 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
     return _tasksByDay[DateTime.utc(day.year, day.month, day.day)] ?? [];
   }
 
+  // Helper function to determine indicator color based on task count
+  Color _getIndicatorColor(int taskCount) {
+    if (taskCount >= 3) {
+      return Colors.red;
+    } else if (taskCount == 2) {
+      return AppColors.primary; // Purple color
+    }
+    // Default for 1 task
+    return Colors.green;
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -85,6 +97,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
 
                 final bool isSelected = isSameDay(_selectedDay, day);
                 final tasksOnDay = _getTasksForDay(day);
+                final Color indicatorColor = _getIndicatorColor(tasksOnDay.length);
 
                 return Container(
                   margin: const EdgeInsets.all(4.0),
@@ -114,19 +127,18 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
                       if (tasksOnDay.isNotEmpty)
                         Align(
                           alignment: Alignment.bottomCenter,
-                          child: Container(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: AppColors.background,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              '${tasksOnDay.length}',
-                              style: const TextStyle(
-                                color: AppColors.primary,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 8.0),
+                            child: CircleAvatar(
+                              radius: 10,
+                              backgroundColor: isSelected ? Colors.white : indicatorColor,
+                              child: Text(
+                                '${tasksOnDay.length}',
+                                style: TextStyle(
+                                  color: isSelected ? indicatorColor : Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                           ),
