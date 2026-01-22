@@ -1,174 +1,225 @@
+// screens/task_detail_screen.dart
 import 'package:app/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
-
+import 'package:intl/intl.dart';
 import '../../models/deadline_task.dart';
 import '../../services/task_service.dart';
-import '../../repositories/task_repository.dart';
-import 'task_update_screen.dart';
+import 'task_update_screen.dart'; // Import màn hình update
 
 class TaskDetailScreen extends StatelessWidget {
   final Task task;
-  const TaskDetailScreen({super.key, required this.task});
+  final String docId; // Cần ID string để gọi API update/delete
+  final TaskService taskService;
+  final String userId;
+
+  const TaskDetailScreen({
+    Key? key,
+    required this.task,
+    required this.docId,
+    required this.taskService,
+    required this.userId,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.background, // Màu nền #E1D0FF
       appBar: AppBar(
+        title: const Text(
+          "Chi tiết",
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text("Chi tiết công việc"),
+        leading: const BackButton(color: AppColors.textPrimary),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ===== TITLE =====
-            Text(
-              task.title,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-
-            const SizedBox(height: 12),
-
-            // ===== DESCRIPTION =====
-            Text(task.description, style: const TextStyle(fontSize: 16)),
-
-            const SizedBox(height: 16),
-
-            // ===== DEADLINE =====
-            Row(
-              children: [
-                const Icon(Icons.calendar_today, size: 16),
-                const SizedBox(width: 6),
-                Text(
-                  "Deadline: ${_formatDate(task.dueAt)}",
-                  style: const TextStyle(fontSize: 14),
+      body: Center(
+        child: Container(
+          margin: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(30),
+            boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                task.title,
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 20),
 
-            const SizedBox(height: 8),
-
-            // ===== REMINDER =====
-            if (task.remindAt.isNotEmpty)
               Row(
-                children: const [
-                  Icon(Icons.notifications_active, size: 16),
-                  SizedBox(width: 6),
-                  Text("Có nhắc nhở"),
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildDateInfo("Bắt đầu", task.startAt),
+                  _buildDateInfo("Kết thúc", task.dueAt),
                 ],
               ),
+              const SizedBox(height: 20),
 
-            const SizedBox(height: 24),
-
-            // ===== PROGRESS =====
-            LinearProgressIndicator(
-              value: task.progress / 100,
-              minHeight: 8,
-              color: _progressColor(task.progress),
-              backgroundColor: Colors.grey.shade300,
-            ),
-            const SizedBox(height: 8),
-            Text("${task.progress}% hoàn thành"),
-
-            const Spacer(),
-
-            // ===== ACTION BUTTONS =====
-            Row(
-              children: [
-                // UPDATE
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      final updated = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => TaskUpdateScreen(task: task),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.detailCard, // #EDE3FF
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          "Tiến độ hoàn thành",
+                          style: TextStyle(fontWeight: FontWeight.w500),
                         ),
-                      );
+                        Text(
+                          "${task.progress}%",
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: LinearProgressIndicator(
+                        value: task.progress / 100.0,
+                        backgroundColor: AppColors.progressBg,
+                        color: task.progressColor,
+                        minHeight: 10,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
 
-                      if (updated != null && context.mounted) {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => TaskDetailScreen(task: updated),
-                          ),
-                        );
-                      }
-                    },
-                    child: const Text("CẬP NHẬT"),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppColors.border),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Mô tả:",
+                      style: TextStyle(color: AppColors.textGrey, fontSize: 12),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      task.description.isEmpty
+                          ? "Không có mô tả"
+                          : task.description,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 30),
+
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => TaskUpdateScreen(
+                        task: task,
+                        docId: docId,
+                        taskService: taskService,
+                        userId: userId,
+                      ),
+                    ),
+                  ).then((_) => Navigator.pop(context));
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.update,
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(25),
                   ),
                 ),
-                const SizedBox(width: 12),
-
-                // DELETE (CONFIRM)
-                Expanded(
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.danger,
-                    ),
-                    onPressed: () async {
-                      final confirm = await showDialog<bool>(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text("Xác nhận xoá"),
-                          content: const Text(
-                            "Bạn có chắc chắn muốn xoá công việc này không?",
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context, false),
-                              child: const Text("HỦY"),
-                            ),
-                            TextButton(
-                              onPressed: () => Navigator.pop(context, true),
-                              child: const Text(
-                                "XOÁ",
-                                style: TextStyle(color: Colors.red),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-
-                      if (confirm != true) return;
-
-                      await TaskService(
-                        TaskRepository(),
-                      ).deleteTask(task.id.toString(), task);
-
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("Đã xóa công việc")),
-                        );
-                        Navigator.popUntil(context, (route) => route.isFirst);
-                      }
-                    },
-                    child: const Text(
-                      "XÓA",
-                      style: TextStyle(color: Colors.white),
-                    ),
+                child: const Text(
+                  "Cập nhật",
+                  style: TextStyle(color: Colors.white, fontSize: 16),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () => _confirmDelete(context),
+                style: TextButton.styleFrom(
+                  backgroundColor: AppColors.danger,
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(25),
                   ),
                 ),
-              ],
-            ),
-          ],
+                child: const Text(
+                  "Xóa",
+                  style: TextStyle(color: Colors.white, fontSize: 16),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
-}
 
-// ===== FORMAT DATE =====
-String _formatDate(DateTime date) {
-  return "${date.day}/${date.month}/${date.year}";
-}
+  Widget _buildDateInfo(String label, DateTime date) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12, color: AppColors.textGrey),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          DateFormat('dd/MM/yyyy HH:mm').format(date),
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            color: AppColors.primary,
+          ),
+        ),
+      ],
+    );
+  }
 
-// ===== PROGRESS COLOR =====
-Color _progressColor(int progress) {
-  if (progress >= 80) return AppColors.progressHigh;
-  if (progress >= 30) return AppColors.progressMedium;
-  return AppColors.progressLow;
+  void _confirmDelete(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Xác nhận xóa"),
+        content: Text("Bạn có chắc muốn xóa '${task.title}' không?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Hủy"),
+          ),
+          TextButton(
+            onPressed: () async {
+              await taskService.deleteTask(docId, task);
+              if (context.mounted) {
+                Navigator.pop(ctx);
+                Navigator.pop(context);
+              }
+            },
+            child: const Text("Xóa", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
 }
