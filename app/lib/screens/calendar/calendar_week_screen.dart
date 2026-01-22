@@ -175,6 +175,7 @@ class _CalendarWeekScreenState extends State<CalendarWeekScreen> {
           const SizedBox(height: 16.0),
           Expanded(
             child: Container(
+              width: double.infinity,
               padding: const EdgeInsets.all(24),
               decoration: const BoxDecoration(
                 color: AppColors.white,
@@ -183,7 +184,9 @@ class _CalendarWeekScreenState extends State<CalendarWeekScreen> {
                   topRight: Radius.circular(32),
                 ),
               ),
-              child: _selectedTasks.isEmpty ? _buildEmptyView() : _buildTaskListView(),
+              child: _selectedTasks.isEmpty
+                  ? _buildEmptyView()
+                  : _buildTaskListView(),
             ),
           ),
         ],
@@ -203,27 +206,30 @@ class _CalendarWeekScreenState extends State<CalendarWeekScreen> {
   }
 
   Widget _buildEmptyView() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Text(
-            'Chưa có công việc',
-            style: TextStyle(fontSize: 16, color: AppColors.textGrey),
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        const SizedBox(height: 80), // Increased from 48 to push it down more
+        const Text(
+          'Chưa có công việc',
+          style: TextStyle(fontSize: 16, color: AppColors.textGrey),
+        ),
+        const SizedBox(height: 24),
+        FloatingActionButton(
+          onPressed: _navigateToCreateScreen,
+          backgroundColor: AppColors.primary,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
           ),
-          const SizedBox(height: 24),
-          FloatingActionButton(
-            onPressed: _navigateToCreateScreen,
-            backgroundColor: AppColors.primary,
-            child: const Icon(Icons.add, color: AppColors.white),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Tạo công việc mới',
-            style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
-          ),
-        ],
-      ),
+          child: const Icon(Icons.add, color: AppColors.white),
+        ),
+        const SizedBox(height: 16),
+        const Text(
+          'Tạo công việc mới',
+          style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
+        ),
+      ],
     );
   }
 
