@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
+
 import '../../core/theme/app_colors.dart';
 import '../../models/deadline_task.dart';
 import '../../services/task_service.dart';
-import '../../widgets/task_item_card.dart';
 import '../task/task_detail_screen.dart';
 
 class StatusListScreen extends StatefulWidget {
   final String title;
-  final TaskStatus status; // Enum trạng thái để lọc
+  final TaskStatus status;
   final TaskService taskService;
   final String userId;
 
@@ -24,91 +24,121 @@ class StatusListScreen extends StatefulWidget {
 }
 
 class _StatusListScreenState extends State<StatusListScreen> {
-  int _tabIndex = 0; // 0: Tuần này, 1: Tháng này, 2: Tất cả
+  int _tab = 2; // Mặc định tab "Tất cả"
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background, // Tím nhạt
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text(
           widget.title,
           style: const TextStyle(
-            color: AppColors.textPrimary,
             fontWeight: FontWeight.bold,
+            color: Colors.black,
           ),
         ),
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: const BackButton(color: AppColors.textPrimary),
+        leading: const BackButton(color: Colors.black),
       ),
       body: Column(
         children: [
-          // --- PHẦN BẠN CẦN: THANH TAB FILTER ---
+          // 1. THANH TAB
           Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            margin: const EdgeInsets.all(16),
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(25), // Bo tròn như viên thuốc
+              borderRadius: BorderRadius.circular(20),
             ),
             child: Row(
-              children: [
-                _buildTabItem("Tuần này", 0),
-                _buildTabItem("Tháng này", 1),
-                _buildTabItem("Tất cả", 2),
-              ],
+              children: ["Tuần này", "Tháng này", "Tất cả"]
+                  .asMap()
+                  .entries
+                  .map(
+                    (e) => Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _tab = e.key),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: _tab == e.key
+                                ? AppColors.surface
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                          child: Text(
+                            e.value,
+                            style: TextStyle(
+                              fontWeight: _tab == e.key
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
             ),
           ),
-          // --------------------------------------
 
-          // DANH SÁCH TASK
+          // 2. LIST VIEW
           Expanded(
             child: FutureBuilder<List<Task>>(
-              // Gọi service lấy toàn bộ task theo status trước
               future: widget.taskService.getTasksByStatus(
                 widget.userId,
                 widget.status,
               ),
               builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
+                if (snapshot.connectionState == ConnectionState.waiting)
                   return const Center(child: CircularProgressIndicator());
-                }
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return Center(
-                    child: Text("Không có task '${widget.title}' nào."),
-                  );
+                  return const Center(child: Text("Không có công việc nào."));
                 }
 
-                // LOGIC LỌC LOCAL (Client-side filter)
-                List<Task> allTasks = snapshot.data!;
-                List<Task> filteredTasks = _filterTasksByTime(allTasks);
+                // Logic Lọc (Filter) bằng tay, không cần thư viện
+                List<Task> tasks = snapshot.data!;
+                final now = DateTime.now();
 
-                if (filteredTasks.isEmpty) {
-                  return const Center(
-                    child: Text("Không có task trong khoảng thời gian này."),
-                  );
+                if (_tab == 0) {
+                  // Tuần này: +/- 7 ngày
+                  tasks = tasks
+                      .where((t) => t.dueAt.difference(now).inDays.abs() < 7)
+                      .toList();
+                } else if (_tab == 1) {
+                  // Tháng này: so sánh tháng và năm
+                  tasks = tasks
+                      .where(
+                        (t) =>
+                            t.dueAt.month == now.month &&
+                            t.dueAt.year == now.year,
+                      )
+                      .toList();
                 }
+
+                if (tasks.isEmpty)
+                  return const Center(child: Text("Không có kết quả lọc."));
 
                 return ListView.builder(
                   padding: const EdgeInsets.all(16),
-                  itemCount: filteredTasks.length,
-                  itemBuilder: (ctx, i) => TaskItemCard(
-                    task: filteredTasks[i],
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => TaskDetailScreen(
-                            task: filteredTasks[i],
-                            docId: filteredTasks[i].id.toString(),
-                            taskService: widget.taskService,
-                            userId: widget.userId,
-                          ),
+                  itemCount: tasks.length,
+                  itemBuilder: (_, i) => TaskItemCard(
+                    task: tasks[i],
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => TaskDetailScreen(
+                          task: tasks[i],
+                          docId: tasks[i].id.toString(),
+                          taskService: widget.taskService,
+                          userId: widget.userId,
                         ),
-                      ).then((_) => setState(() {})); // Refresh khi quay lại
-                    },
+                      ),
+                    ).then((_) => setState(() {})),
                   ),
                 );
               },
@@ -118,62 +148,93 @@ class _StatusListScreenState extends State<StatusListScreen> {
       ),
     );
   }
+}
 
-  // Widget từng nút Tab
-  Widget _buildTabItem(String text, int index) {
-    bool isSelected = _tabIndex == index;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _tabIndex = index),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: isSelected
-                ? AppColors.surface
-                : Colors.transparent, // Tab chọn có màu nền khác
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 4,
-                    ),
-                  ]
-                : [],
-          ),
-          child: Text(
-            text,
-            style: TextStyle(
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              color: isSelected ? Colors.black : Colors.grey,
+// ==========================================
+// CLASS TaskItemCard (COPY Y HỆT BÊN TRÊN)
+// ==========================================
+class TaskItemCard extends StatelessWidget {
+  final Task task;
+  final VoidCallback onTap;
+
+  const TaskItemCard({Key? key, required this.task, required this.onTap})
+    : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    String dayStr = "${task.dueAt.day}/${task.dueAt.month}";
+    String dateStr = task.isOverdue ? "Hết hạn $dayStr" : "Đến hạn: $dayStr";
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 4,
+              offset: Offset(0, 2),
             ),
-          ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    task.title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                if (task.isCompleted)
+                  const Icon(
+                    Icons.check_circle,
+                    color: AppColors.success,
+                    size: 20,
+                  ),
+                if (task.isOverdue)
+                  const Icon(Icons.cancel, color: AppColors.danger, size: 20),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              dateStr,
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(5),
+              child: LinearProgressIndicator(
+                value: task.progress / 100,
+                backgroundColor: AppColors.progressBg,
+                valueColor: AlwaysStoppedAnimation<Color>(task.progressColor),
+                minHeight: 6,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                "${task.progress}%",
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
-  }
-
-  // Hàm lọc danh sách theo thời gian
-  List<Task> _filterTasksByTime(List<Task> tasks) {
-    final now = DateTime.now();
-    if (_tabIndex == 2) return tasks; // Tất cả
-
-    return tasks.where((t) {
-      if (_tabIndex == 0) {
-        // Tuần này (Logic đơn giản: cùng năm và cùng số tuần, hoặc khoảng cách ngày < 7)
-        // Để chính xác: check xem task.dueAt có nằm trong Thứ 2 -> CN tuần này không
-        final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-        final endOfWeek = startOfWeek.add(const Duration(days: 7));
-        return t.dueAt.isAfter(
-              startOfWeek.subtract(const Duration(seconds: 1)),
-            ) &&
-            t.dueAt.isBefore(endOfWeek);
-      } else {
-        // Tháng này
-        return t.dueAt.year == now.year && t.dueAt.month == now.month;
-      }
-    }).toList();
   }
 }
