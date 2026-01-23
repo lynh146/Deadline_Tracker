@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'screens/auth/splash_screen.dart';
 import 'core/theme/app_colors.dart';
 
@@ -10,7 +11,16 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
 
-      // ✅ ÉP NỀN APP (đỡ lộ nền đen nếu có frame chưa kịp paint)
+      // ✅ ÉP TIẾNG VIỆT
+      locale: const Locale('vi', 'VN'),
+      supportedLocales: const [Locale('vi', 'VN')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+
+      // ✅ ÉP NỀN APP
       builder: (context, child) {
         return ColoredBox(
           color: AppColors.background,
@@ -23,7 +33,6 @@ class MyApp extends StatelessWidget {
         scaffoldBackgroundColor: AppColors.background,
         canvasColor: AppColors.background,
 
-        // ✅ ÉP TRANSITION (Android) để hạn chế flash nền đen lúc push/pop
         pageTransitionsTheme: const PageTransitionsTheme(
           builders: {
             TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
