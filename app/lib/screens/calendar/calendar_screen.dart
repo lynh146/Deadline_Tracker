@@ -2,6 +2,9 @@ import 'package:app/core/theme/app_colors.dart';
 import 'package:app/screens/calendar/calendar_month_screen.dart';
 import 'package:app/screens/calendar/calendar_week_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../notifications/notification_bell.dart';
+import '../notifications/notification_screen.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -11,6 +14,7 @@ class CalendarScreen extends StatefulWidget {
 }
 
 class _CalendarScreenState extends State<CalendarScreen> {
+  late final String _userId;
   bool _isMonthView = true;
   DateTime _focusedDay = DateTime.now();
 
@@ -25,6 +29,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
     setState(() {
       _isMonthView = true;
     });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('User chưa đăng nhập');
+    }
+    _userId = user.uid;
   }
 
   @override
@@ -45,11 +59,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
           style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_none, color: Colors.black),
-            onPressed: () {
-              // TODO: Handle notification tap
-            },
+          Padding(
+            padding: const EdgeInsets.only(right: 10),
+            child: NotificationBell(
+              userId: _userId,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => NotificationScreen(userId: _userId),
+                  ),
+                );
+              },
+            ),
           ),
         ],
       ),
