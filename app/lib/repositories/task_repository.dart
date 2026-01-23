@@ -1,12 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/deadline_task.dart';
 
-// Repository CHỈ LÀM 1 VIỆC:
-// - Đọc dữ liệu từ Firestore
-// - Map Firestore → Task model
-// - Trả về Task model cho Service xử lý
-// KHÔNG xử lý logic hôm nay / tuần
-// KHÔNG sort theo UI
 class TaskRepository {
   final _db = FirebaseFirestore.instance;
 
@@ -25,7 +19,7 @@ class TaskRepository {
     final data = doc.data() as Map<String, dynamic>;
 
     return Task(
-      id: null,
+      id: doc.id,
       title: data['title'] ?? '',
       description: data['description'] ?? '',
       startAt: (data['startAt'] as Timestamp).toDate(),
@@ -38,8 +32,8 @@ class TaskRepository {
   }
 
   // CREATE
-  Future<void> addTask({required String userId, required Task task}) async {
-    await _db.collection('tasks').add({
+  Future<String> addTask({required String userId, required Task task}) async {
+    final ref = await _db.collection('tasks').add({
       'userId': userId,
       'title': task.title,
       'description': task.description,
@@ -50,6 +44,8 @@ class TaskRepository {
       'createdAt': Timestamp.now(),
       'updatedAt': Timestamp.now(),
     });
+
+    return ref.id;
   }
 
   // UPDATE

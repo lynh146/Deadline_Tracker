@@ -10,6 +10,7 @@ import '../../screens/profile/profile_screen.dart';
 import '../../repositories/task_repository.dart';
 import '../../services/task_service.dart';
 import '../../screens/task/task_create_screen.dart';
+import '../../core/theme/app_colors.dart';
 
 class MainScaffold extends StatefulWidget {
   const MainScaffold({super.key});
@@ -27,60 +28,107 @@ class _MainScaffoldState extends State<MainScaffold> {
   // dùng để rebuild tab khi tạo task xong
   int _refreshSeed = 0;
 
+  // ✅ mỗi tab 1 navigator stack riêng
+  final _navKeys = List.generate(4, (_) => GlobalKey<NavigatorState>());
+
   @override
   void initState() {
     super.initState();
 
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      _userId = '';
-    } else {
-      _userId = user.uid;
-    }
+    _userId = user?.uid ?? '';
 
     _taskService = TaskService(TaskRepository());
   }
 
-  List<Widget> get _pages => [
-    HomeScreen(key: ValueKey('home_$_refreshSeed')),
-    CalendarScreen(key: ValueKey('cal_$_refreshSeed')),
-    const SizedBox(), // placeholder cho nút +
-    StatsScreen(
-      key: ValueKey('stats_$_refreshSeed'),
-      taskService: _taskService,
-      userId: _userId,
-    ),
-    const ProfileScreen(),
-  ];
+  Future<void> _openCreate() async {
+    // ✅ đẩy create lên “root” để che toàn bộ (bottom vẫn nằm dưới route root)
+    final created = await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const TaskCreateScreen()));
+
+    if (created == true) {
+      setState(() {
+        _refreshSeed++;
+        _currentIndex = 0; // quay về Home
+        // reset stack của tab hiện tại (tuỳ bạn, có thể bỏ)
+        for (final k in _navKeys) {
+          k.currentState?.popUntil((r) => r.isFirst);
+        }
+      });
+    }
+  }
 
   void _onTabChanged(int index) async {
     if (index == 2) {
-      // mở màn Tạo công việc
-      final created = await Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const TaskCreateScreen()),
-      );
+      await _openCreate();
+      return;
+    }
 
-      // create screen của bạn pop(true) khi tạo thành công
-      if (created == true) {
-        setState(() {
-          _refreshSeed++; // rebuild Home/Calendar/Stats để reload UI
-          _currentIndex = 0; // quay về Home
-        });
-      }
+    // nếu bấm lại đúng tab hiện tại -> pop về root của tab đó
+    final realIndex = _mapIndex(index);
+    final currentReal = _mapIndex(_currentIndex);
+
+    if (realIndex == currentReal) {
+      _navKeys[realIndex].currentState?.popUntil((r) => r.isFirst);
       return;
     }
 
     setState(() => _currentIndex = index);
   }
 
+  // vì có nút + ở giữa, ta map index về 4 tab thật (0..3)
+  int _mapIndex(int bottomIndex) {
+    // bottomIndex: 0 Home, 1 Calendar, 2 +, 3 Stats, 4 Profile
+    if (bottomIndex <= 1) return bottomIndex; // 0,1
+    if (bottomIndex >= 3) return bottomIndex - 1; // 3->2, 4->3
+    return 0; // không dùng cho index=2
+  }
+
+  Widget _buildTabNavigator({
+    required int tabIndex, // 0..3 (Home/Calendar/Stats/Profile)
+    required Widget root,
+  }) {
+    return Navigator(
+      key: _navKeys[tabIndex],
+      onGenerateRoute: (_) => MaterialPageRoute(builder: (_) => root),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final tabIndex = _mapIndex(_currentIndex);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFE1D0FF),
+      backgroundColor: AppColors.background,
       body: Stack(
         children: [
-          Positioned.fill(child: _pages[_currentIndex]),
+          Positioned.fill(
+            child: IndexedStack(
+              index: tabIndex,
+              children: [
+                _buildTabNavigator(
+                  tabIndex: 0,
+                  root: HomeScreen(key: ValueKey('home_$_refreshSeed')),
+                ),
+                _buildTabNavigator(
+                  tabIndex: 1,
+                  root: CalendarScreen(key: ValueKey('cal_$_refreshSeed')),
+                ),
+                _buildTabNavigator(
+                  tabIndex: 2,
+                  root: StatsScreen(
+                    key: ValueKey('stats_$_refreshSeed'),
+                    taskService: _taskService,
+                    userId: _userId,
+                  ),
+                ),
+                _buildTabNavigator(tabIndex: 3, root: const ProfileScreen()),
+              ],
+            ),
+          ),
+
+          // ✅ bottom luôn nằm “trên cùng”
           Positioned(
             left: 0,
             right: 0,
