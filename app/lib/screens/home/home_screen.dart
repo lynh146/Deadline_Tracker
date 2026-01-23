@@ -1,3 +1,4 @@
+import 'package:app/screens/notifications/notification_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -5,6 +6,8 @@ import 'package:app/models/deadline_task.dart';
 import 'package:app/services/task_service.dart';
 import 'package:app/repositories/task_repository.dart';
 import 'package:app/core/theme/app_colors.dart';
+import '../notifications/notification_bell.dart';
+import '../task/task_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -14,10 +17,11 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
-  late TaskService _taskService;
-  Future<List<Task>>? _todayTasksFuture;
-  Future<int>? _weeklyTasksFuture;
-  late String _userId;
+  late final TaskService _taskService;
+  late final String _userId;
+
+  late Future<List<Task>> _todayTasksFuture;
+  late Future<int> _weeklyTasksFuture;
 
   @override
   void initState() {
@@ -30,16 +34,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
 
     _userId = user.uid;
-    final repo = TaskRepository();
-    _taskService = TaskService(repo);
+    _taskService = TaskService(TaskRepository());
+
     _loadTasks();
   }
 
   void _loadTasks() {
-    setState(() {
-      _todayTasksFuture = _taskService.getTodayTasks(_userId);
-      _weeklyTasksFuture = _taskService.getWeeklyTasks(_userId);
-    });
+    _todayTasksFuture = _taskService.getTodayTasks(_userId);
+    _weeklyTasksFuture = _taskService.getWeeklyTasks(_userId);
+    if (mounted) setState(() {});
   }
 
   @override
@@ -58,124 +61,150 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<dynamic>>(
-      future: Future.wait([_todayTasksFuture!, _weeklyTasksFuture!]),
+      future: Future.wait<dynamic>([_todayTasksFuture, _weeklyTasksFuture]),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            backgroundColor: AppColors.background,
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        if (snapshot.hasError) {
-          return Scaffold(
-            backgroundColor: AppColors.background,
-            body: Center(
-              child: Text(
-                'Đã xảy ra lỗi: ${snapshot.error}',
-                style: const TextStyle(color: AppColors.textGrey),
-              ),
-            ),
-          );
-        }
-
-        final todayTasks = (snapshot.data![0] as List<Task>?) ?? [];
-        final weeklyTaskCount = (snapshot.data![1] as int?) ?? 0;
+        final loading = snapshot.connectionState == ConnectionState.waiting;
 
         return Scaffold(
           backgroundColor: AppColors.background,
+
+          // ✅ AppBar chữ đen + chuông
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            surfaceTintColor: Colors.transparent,
+            titleSpacing: 20,
+            title: const Text(
+              'Timely',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary, // đen
+              ),
+            ),
+            actions: [
+              Padding(
+                padding: const EdgeInsets.only(right: 10),
+                child: NotificationBell(
+                  userId: _userId,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => NotificationScreen(userId: _userId),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+
           body: SafeArea(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            top: false,
+            child: loading
+                ? const Center(child: CircularProgressIndicator())
+                : _buildBody(snapshot),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildBody(AsyncSnapshot<List<dynamic>> snapshot) {
+    if (snapshot.hasError) {
+      return Center(
+        child: Text(
+          'Đã xảy ra lỗi: ${snapshot.error}',
+          style: const TextStyle(color: AppColors.textGrey),
+          textAlign: TextAlign.center,
+        ),
+      );
+    }
+
+    final todayTasks = (snapshot.data?[0] as List<Task>?) ?? <Task>[];
+    final weeklyTaskCount = (snapshot.data?[1] as int?) ?? 0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ================= SUMMARY =================
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.statCard,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                /// ================= HEADER =================
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: const [
-                      Text(
-                        'Timely',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      Icon(
-                        Icons.notifications_none,
-                        color: AppColors.textPrimary,
-                      ),
-                    ],
-                  ),
+                _SummaryItem(
+                  value: todayTasks.length,
+                  label: 'Công việc\nhôm nay',
                 ),
-
-                /// ================= SUMMARY =================
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppColors.statCard,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _SummaryItem(
-                          value: todayTasks.length,
-                          label: 'Công việc\nhôm nay',
-                        ),
-                        _SummaryItem(
-                          value: weeklyTaskCount,
-                          label: 'Công việc\ntrong tuần',
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 20),
-
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20),
-                  child: Text(
-                    'Công việc hôm nay',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
-                /// ================= LIST TASK =================
-                Expanded(
-                  child: todayTasks.isEmpty
-                      ? const Center(
-                    child: Text(
-                      'Không có công việc nào cho hôm nay!',
-                      style: TextStyle(color: AppColors.textGrey),
-                    ),
-                  )
-                      : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    itemCount: todayTasks.length,
-                    itemBuilder: (context, index) {
-                      return _TaskCard(task: todayTasks[index]);
-                    },
-                  ),
+                _SummaryItem(
+                  value: weeklyTaskCount,
+                  label: 'Công việc\ntrong tuần',
                 ),
               ],
             ),
           ),
-        );
-      },
+        ),
+
+        const SizedBox(height: 20),
+
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 20),
+          child: Text(
+            'Công việc hôm nay',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        // ================= LIST =================
+        Expanded(
+          child: todayTasks.isEmpty
+              ? const Center(
+            child: Text(
+              'Không có công việc nào cho hôm nay!',
+              style: TextStyle(color: AppColors.textGrey),
+            ),
+          )
+              : ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            itemCount: todayTasks.length,
+            itemBuilder: (context, index) {
+              final task = todayTasks[index];
+
+              return InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => TaskDetailScreen(
+                        task: task,
+                        docId: task.id!, // ⚠️ task.id phải có
+                        taskService: _taskService,
+                        userId: _userId,
+                      ),
+                    ),
+                  ).then((_) => _loadTasks()); // quay về refresh
+                },
+                child: _TaskCard(task: task),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
@@ -251,10 +280,7 @@ class _TaskCard extends StatelessWidget {
           Expanded(
             child: Text(
               task.title,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
           ),
           const SizedBox(width: 16),
@@ -264,12 +290,14 @@ class _TaskCard extends StatelessWidget {
               Row(
                 children: [
                   SizedBox(
-                    width: 80, // Fixed width for the progress bar
+                    width: 80,
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(10),
                       child: LinearProgressIndicator(
                         value: progressValue,
-                        valueColor: AlwaysStoppedAnimation<Color>(_getProgressColor(task.progress)),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          _getProgressColor(task.progress),
+                        ),
                         backgroundColor: AppColors.progressBg,
                         minHeight: 8,
                       ),
@@ -278,7 +306,10 @@ class _TaskCard extends StatelessWidget {
                   const SizedBox(width: 8),
                   Text(
                     '${task.progress}%',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
