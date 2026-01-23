@@ -33,10 +33,24 @@ class _TaskUpdateScreenState extends State<TaskUpdateScreen> {
 
     _currentProgress = widget.task.progress.toDouble();
     _descController = TextEditingController(text: widget.task.description);
+
+    // Initialize reminder option based on existing remindAt
+    if (widget.task.remindAt.isNotEmpty) {
+      final diff = widget.task.dueAt
+          .difference(widget.task.remindAt.first)
+          .inDays;
+      if (diff == 1 || diff == 3 || diff == 5) {
+        _reminderOption = diff;
+      } else {
+        _reminderOption = 1; // default
+      }
+    } else {
+      _reminderOption = 1;
+    }
   }
 
   Color get _sliderColor {
-    if (_currentProgress >= 100) return AppColors.success;
+    if (_currentProgress >= 100) return AppColors.progressHigh;
     if (_currentProgress < 30) return AppColors.progressLow;
     return AppColors.progressMedium;
   }
@@ -178,7 +192,7 @@ class _TaskUpdateScreenState extends State<TaskUpdateScreen> {
                 child: ElevatedButton(
                   onPressed: _onSave,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,  
+                    backgroundColor: AppColors.primary,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(25),
                     ),
@@ -200,16 +214,14 @@ class _TaskUpdateScreenState extends State<TaskUpdateScreen> {
     );
   }
 
-   
   Widget _buildRadioOption(int value, String label) {
     return GestureDetector(
       onTap: () => setState(() => _reminderOption = value),
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
-        color: Colors.transparent,  
+        color: Colors.transparent,
         child: Row(
           children: [
-             
             Icon(
               _reminderOption == value
                   ? Icons.check_box
@@ -244,25 +256,22 @@ class _TaskUpdateScreenState extends State<TaskUpdateScreen> {
   }
 
   void _onSave() async {
-     
     final updatedTask = Task(
       id: widget.task.id,
       title: widget.task.title,
       description: _descController.text,
       startAt: widget.task.startAt,
       dueAt: widget.task.dueAt,
-      remindAt: widget.task.remindAt,
-      priority: widget.task.priority,
-      progress: _currentProgress.toInt(),  
+      remindAt: [widget.task.dueAt.subtract(Duration(days: _reminderOption))],
+      progress: _currentProgress.toInt(),
     );
 
-     
     try {
       await widget.taskService.updateTask(
         docId: widget.docId,
         task: updatedTask,
       );
-      if (mounted) Navigator.pop(context);  
+      if (mounted) Navigator.pop(context);
     } catch (e) {
       ScaffoldMessenger.of(
         context,
