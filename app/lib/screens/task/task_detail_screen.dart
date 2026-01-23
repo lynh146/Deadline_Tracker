@@ -1,218 +1,222 @@
+// screens/task_detail_screen.dart
+import 'package:app/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import '../../models/deadline_task.dart';
+import '../../services/task_service.dart';
+import 'task_update_screen.dart'; // Import màn hình update
 
 class TaskDetailScreen extends StatelessWidget {
-  final Map<String, dynamic> task;
+  final Task task;
+  final String docId; // Cần ID string để gọi API update/delete
+  final TaskService taskService;
+  final String userId;
 
-  const TaskDetailScreen({super.key, required this.task});
+  const TaskDetailScreen({
+    Key? key,
+    required this.task,
+    required this.docId,
+    required this.taskService,
+    required this.userId,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    final List<String> reminders = task['reminders'] ?? [];
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F0FF),
+      backgroundColor: AppColors.background, // Màu nền #E1D0FF
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
         title: const Text(
-          "Chi tiết công việc",
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+          "Chi tiết",
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: AppColors.textPrimary,
+          ),
         ),
         centerTitle: true,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: const BackButton(color: AppColors.textPrimary),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 25.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 10),
-
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(25),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(30),
+      body: Center(
+        child: Container(
+          margin: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(30),
+            boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                task.title,
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
               ),
-              child: Column(
-                children: [
-                  Text(
-                    task['title'] ?? '',
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "Hạn chót: ${task['dueAt'] ?? task['endDate'] ?? ''}",
-                    style: const TextStyle(color: Colors.grey, fontSize: 14),
-                  ),
-                  const SizedBox(height: 25),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        "Trạng thái: ${task['status'] ?? ''}",
-                        style: const TextStyle(fontWeight: FontWeight.w500),
-                      ),
-                      Text("${task['progress']}%"),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: LinearProgressIndicator(
-                      value: (task['progress'] ?? 0) / 100,
-                      minHeight: 12,
-                      backgroundColor: const Color(0xFFF0F0F0),
+              const SizedBox(height: 20),
 
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        task['progressColor'] ?? Colors.purple,
-                      ),
-                    ),
-                  ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildDateInfo("Bắt đầu", task.startAt),
+                  _buildDateInfo("Kết thúc", task.dueAt),
                 ],
               ),
-            ),
+              const SizedBox(height: 20),
 
-            const SizedBox(height: 20),
-
-            const Text(
-              "  Mô tả",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                task['description'] ?? 'Không có mô tả',
-                style: const TextStyle(color: Colors.black87, height: 1.5),
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            if (reminders.isNotEmpty) ...[
-              const Text(
-                "  Nhắc nhở",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              const SizedBox(height: 8),
-              ...reminders
-                  .map(
-                    (item) => Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 15,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(15),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.notifications_active_outlined,
-                            color: Colors.orange,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 15),
-                          Text(item),
-                        ],
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.detailCard, // #EDE3FF
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          "Tiến độ hoàn thành",
+                          style: TextStyle(fontWeight: FontWeight.w500),
+                        ),
+                        Text(
+                          "${task.progress}%",
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: LinearProgressIndicator(
+                        value: task.progress / 100.0,
+                        backgroundColor: AppColors.progressBg,
+                        color: task.progressColor,
+                        minHeight: 10,
                       ),
                     ),
-                  )
-                  .toList(),
-            ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
 
-            const SizedBox(height: 30),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppColors.border),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Mô tả:",
+                      style: TextStyle(color: AppColors.textGrey, fontSize: 12),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      task.description.isEmpty
+                          ? "Không có mô tả"
+                          : task.description,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 30),
 
-            SizedBox(
-              width: double.infinity,
-              height: 55,
-              child: ElevatedButton(
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => TaskUpdateScreen(
+                        task: task,
+                        docId: docId,
+                        taskService: taskService,
+                        userId: userId,
+                      ),
+                    ),
+                  ).then((_) => Navigator.pop(context));
+                },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6C63FF),
+                  backgroundColor: AppColors.update,
+                  minimumSize: const Size(double.infinity, 50),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(15),
+                    borderRadius: BorderRadius.circular(25),
                   ),
                 ),
-                onPressed: () {},
                 child: const Text(
                   "Cập nhật",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(color: Colors.white, fontSize: 16),
                 ),
               ),
-            ),
-
-            const SizedBox(height: 12),
-
-            SizedBox(
-              width: double.infinity,
-              height: 55,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFFE8E8),
-                  elevation: 0,
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () => _confirmDelete(context),
+                style: TextButton.styleFrom(
+                  backgroundColor: AppColors.danger,
+                  minimumSize: const Size(double.infinity, 50),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(15),
+                    borderRadius: BorderRadius.circular(25),
                   ),
                 ),
-                onPressed: () => _confirmDelete(context),
                 child: const Text(
                   "Xóa",
-                  style: TextStyle(
-                    color: Color(0xFFFF5C5C),
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(color: Colors.white, fontSize: 16),
                 ),
               ),
-            ),
-            const SizedBox(height: 40),
-          ],
+            ],
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _buildDateInfo(String label, DateTime date) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12, color: AppColors.textGrey),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          DateFormat('dd/MM/yyyy HH:mm').format(date),
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            color: AppColors.primary,
+          ),
+        ),
+      ],
     );
   }
 
   void _confirmDelete(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("Xác nhận xóa?"),
-        content: const Text("Bạn có chắc chắn muốn xóa công việc này?"),
+      builder: (ctx) => AlertDialog(
+        title: const Text("Xác nhận xóa"),
+        content: Text("Bạn có chắc muốn xóa '${task.title}' không?"),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(ctx),
             child: const Text("Hủy"),
           ),
           TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.pop(context);
+            onPressed: () async {
+              await taskService.deleteTask(docId, task);
+              if (context.mounted) {
+                Navigator.pop(ctx);
+                Navigator.pop(context);
+              }
             },
-            child: const Text(
-              "Xóa",
-              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-            ),
+            child: const Text("Xóa", style: TextStyle(color: Colors.red)),
           ),
         ],
       ),

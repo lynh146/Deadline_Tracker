@@ -34,6 +34,9 @@ class AppColors {
   /// Tiến độ tốt
   static const Color progressHigh = Color(0xFF0EFD3A);
 
+  /// Tiến độ hoàn thành / thành công
+  static const Color success = Color(0xFF0EFD3A);
+
   /// Background progress
   static const Color progressBg = Color(0xFFD9D9D9);
 
