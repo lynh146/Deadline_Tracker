@@ -38,7 +38,11 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
     final Map<DateTime, List<Task>> groupedTasks = {};
 
     for (final task in tasks) {
-      final date = DateTime.utc(task.dueAt.year, task.dueAt.month, task.dueAt.day);
+      final date = DateTime.utc(
+        task.dueAt.year,
+        task.dueAt.month,
+        task.dueAt.day,
+      );
       if (groupedTasks[date] == null) {
         groupedTasks[date] = [];
       }
@@ -67,7 +71,6 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
     return Colors.green;
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -76,6 +79,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
         children: [
           _buildDaysOfWeekHeader(),
           TableCalendar(
+            locale: 'vi_VN',
             firstDay: DateTime.utc(2010, 10, 16),
             lastDay: DateTime.utc(2030, 3, 14),
             focusedDay: _focusedDay,
@@ -87,7 +91,10 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
             headerStyle: const HeaderStyle(
               titleCentered: true,
               formatButtonVisible: false,
-              titleTextStyle: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              titleTextStyle: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             calendarBuilders: CalendarBuilders(
               prioritizedBuilder: (context, day, focusedDay) {
@@ -97,7 +104,9 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
 
                 final bool isSelected = isSameDay(_selectedDay, day);
                 final tasksOnDay = _getTasksForDay(day);
-                final Color indicatorColor = _getIndicatorColor(tasksOnDay.length);
+                final Color indicatorColor = _getIndicatorColor(
+                  tasksOnDay.length,
+                );
 
                 return Container(
                   margin: const EdgeInsets.all(4.0),
@@ -120,7 +129,10 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
                           padding: const EdgeInsets.only(top: 8.0),
                           child: Text(
                             '${day.day}',
-                            style: TextStyle(color: isSelected ? Colors.white : Colors.black, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              color: isSelected ? Colors.white : Colors.black,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ),
@@ -131,11 +143,15 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
                             padding: const EdgeInsets.only(bottom: 8.0),
                             child: CircleAvatar(
                               radius: 10,
-                              backgroundColor: isSelected ? Colors.white : indicatorColor,
+                              backgroundColor: isSelected
+                                  ? Colors.white
+                                  : indicatorColor,
                               child: Text(
                                 '${tasksOnDay.length}',
                                 style: TextStyle(
-                                  color: isSelected ? indicatorColor : Colors.white,
+                                  color: isSelected
+                                      ? indicatorColor
+                                      : Colors.white,
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -173,7 +189,17 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: dow.map((day) => Text(day, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))).toList(),
+        children: dow
+            .map(
+              (day) => Text(
+            day,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
+          ),
+        )
+            .toList(),
       ),
     );
   }
