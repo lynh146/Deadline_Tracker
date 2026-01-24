@@ -279,8 +279,8 @@ class _CalendarWeekScreenState extends State<CalendarWeekScreen> {
         return InkWell(
           onTap: () => _navigateToDetailScreen(task),
           child: Card(
-            color: const Color(0xFFF6F1FF),
-            elevation: 0,
+            color: const Color(0xFFF6F1FF), // Light purple background
+            elevation: 0, // No shadow
             margin: const EdgeInsets.symmetric(vertical: 8),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             child: Padding(
@@ -292,7 +292,7 @@ class _CalendarWeekScreenState extends State<CalendarWeekScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(task.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      Text('${task.progress}%', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 14)),
+                      Text('${task.progress}%', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87, fontSize: 14)),
                     ],
                   ),
                   const SizedBox(height: 8),

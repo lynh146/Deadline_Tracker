@@ -141,6 +141,7 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
+        resizeToAvoidBottomInset: false,
         backgroundColor: AppColors.background,
         appBar: AppBar(
           backgroundColor: Colors.transparent,
@@ -219,7 +220,6 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
                             style: TextStyle(fontWeight: FontWeight.bold),
                           ),
 
-                          // ✅ Slider đổi màu theo progressColor trong deadline_task.dart
                           Row(
                             children: [
                               Expanded(
