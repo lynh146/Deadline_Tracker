@@ -100,6 +100,7 @@ class _MainScaffoldState extends State<MainScaffold> {
     final tabIndex = _mapIndex(_currentIndex);
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: AppColors.background,
       body: Stack(
         children: [

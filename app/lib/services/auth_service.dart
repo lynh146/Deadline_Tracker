@@ -24,7 +24,32 @@ class AuthService {
 
   // EMAIL SIGN IN
   Future<void> signInWithEmail(String email, String password) async {
-    await _auth.signInWithEmailAndPassword(email: email, password: password);
+    try {
+      await _auth.signInWithEmailAndPassword(email: email, password: password);
+    } on FirebaseAuthException catch (e) {
+      throw _mapAuthError(e);
+    } catch (_) {
+      throw 'Đã xảy ra lỗi. Vui lòng thử lại';
+    }
+  }
+
+  String _mapAuthError(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'invalid-email':
+        return 'Email không đúng định dạng';
+      case 'user-not-found':
+        return 'Email chưa được đăng ký';
+      case 'wrong-password':
+        return 'Mật khẩu không chính xác';
+      case 'invalid-credential':
+        return 'Email hoặc mật khẩu không đúng';
+      case 'user-disabled':
+        return 'Tài khoản đã bị vô hiệu hóa';
+      case 'too-many-requests':
+        return 'Thao tác quá nhiều lần, vui lòng thử lại sau';
+      default:
+        return 'Đăng nhập thất bại. Vui lòng kiểm tra lại';
+    }
   }
 
   // GOOGLE
