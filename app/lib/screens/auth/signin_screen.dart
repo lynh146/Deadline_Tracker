@@ -22,9 +22,28 @@ class _SignInScreenState extends State<SignInScreen> {
 
   //LOGIN EMAIL
   Future<void> _login() async {
+    final email = _email.text.trim();
+    final pass = _pass.text.trim();
+
+    // ✅ check email format trước
+    final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
+    if (!emailRegex.hasMatch(email)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Email không đúng định dạng')),
+      );
+      return;
+    }
+
+    if (pass.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Vui lòng nhập mật khẩu')));
+      return;
+    }
+
     setState(() => _loading = true);
     try {
-      await _auth.signInWithEmail(_email.text.trim(), _pass.text.trim());
+      await _auth.signInWithEmail(email, pass);
       if (!mounted) return;
       Navigator.pop(context);
     } catch (e) {
