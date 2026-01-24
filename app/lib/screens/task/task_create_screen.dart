@@ -4,6 +4,8 @@ import 'package:app/repositories/task_repository.dart';
 import 'package:app/services/task_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../notifications/notification_bell.dart';
+import '../notifications/notification_screen.dart';
 
 class TaskCreateScreen extends StatefulWidget {
   const TaskCreateScreen({super.key});
@@ -50,8 +52,10 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
 
     final remindAts = <DateTime>[];
     if (_remind1Day) remindAts.add(_endDate!.subtract(const Duration(days: 1)));
-    if (_remind3Days) remindAts.add(_endDate!.subtract(const Duration(days: 3)));
-    if (_remind5Days) remindAts.add(_endDate!.subtract(const Duration(days: 5)));
+    if (_remind3Days)
+      remindAts.add(_endDate!.subtract(const Duration(days: 3)));
+    if (_remind5Days)
+      remindAts.add(_endDate!.subtract(const Duration(days: 5)));
 
     try {
       final task = Task(
@@ -64,10 +68,7 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
         remindAt: remindAts,
       );
 
-      await _taskService.createTask(
-        userId: user.uid,
-        task: task,
-      );
+      await _taskService.createTask(userId: user.uid, task: task);
 
       if (!mounted) return;
 
@@ -77,14 +78,15 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi khi tạo công việc: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Lỗi khi tạo công việc: $e')));
     }
   }
 
   Future<void> _selectDateTime(BuildContext context, bool isStartDate) async {
     final initialDate = isStartDate ? _startDate : _endDate;
+
     final DateTime? pickedDate = await showDatePicker(
       context: context,
       initialDate: initialDate ?? DateTime.now(),
@@ -93,7 +95,6 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
     );
 
     if (pickedDate == null) return;
-
     if (!mounted) return;
 
     final initialTime = TimeOfDay.fromDateTime(initialDate ?? DateTime.now());
@@ -112,6 +113,7 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
         pickedTime.hour,
         pickedTime.minute,
       );
+
       if (isStartDate) {
         _startDate = selectedDateTime;
       } else {
@@ -122,6 +124,22 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final userId = FirebaseAuth.instance.currentUser!.uid;
+
+    // ✅ Task "preview" để lấy progressColor theo logic deadline_task.dart
+    // Không lưu DB, không schedule, không analytics => không ảnh hưởng tạo task
+    final previewTask = Task(
+      id: null,
+      title: _titleController.text.trim(),
+      description: _descriptionController.text.trim(),
+      startAt: _startDate ?? DateTime.now(),
+      dueAt: _endDate ?? DateTime.now().add(const Duration(days: 1)),
+      progress: _progress.round(),
+      remindAt: const [],
+    );
+
+    final Color progressColor = previewTask.progressColor;
+
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
@@ -129,6 +147,7 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
+          surfaceTintColor: Colors.transparent,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
             onPressed: () => Navigator.of(context).pop(),
@@ -138,15 +157,24 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
             style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
           ),
           actions: [
-            IconButton(
-              icon: const Icon(Icons.notifications_none, color: Colors.black),
-              onPressed: () {},
+            NotificationBell(
+              userId: userId,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => NotificationScreen(userId: userId),
+                  ),
+                );
+              },
             ),
           ],
         ),
+
         body: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0),            child: Column(
+            padding: const EdgeInsets.symmetric(horizontal: 20.0),
+            child: Column(
               children: [
                 Expanded(
                   child: SingleChildScrollView(
@@ -187,25 +215,35 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
                             ],
                           ),
                           const SizedBox(height: 16),
+
                           const Text(
                             'Tiến độ ban đầu',
                             style: TextStyle(fontWeight: FontWeight.bold),
                           ),
+
+                          // ✅ Slider đổi màu theo progressColor trong deadline_task.dart
                           Row(
                             children: [
                               Expanded(
-                                child: Slider(
-                                  value: _progress,
-                                  min: 0,
-                                  max: 100,
-                                  divisions: 100,
-                                  label: '${_progress.round()}%',
-                                  activeColor: AppColors.primary,
-                                  inactiveColor:
-                                  AppColors.primary.withOpacity(0.3),
-                                  onChanged: (double value) {
-                                    setState(() => _progress = value);
-                                  },
+                                child: SliderTheme(
+                                  data: SliderTheme.of(context).copyWith(
+                                    activeTrackColor: progressColor,
+                                    thumbColor: progressColor,
+                                    overlayColor: progressColor.withOpacity(
+                                      0.15,
+                                    ),
+                                    inactiveTrackColor: AppColors.progressBg,
+                                  ),
+                                  child: Slider(
+                                    value: _progress,
+                                    min: 0,
+                                    max: 100,
+                                    divisions: 100,
+                                    label: '${_progress.round()}%',
+                                    onChanged: (double value) {
+                                      setState(() => _progress = value);
+                                    },
+                                  ),
                                 ),
                               ),
                               Text(
@@ -216,6 +254,7 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
                               ),
                             ],
                           ),
+
                           const Text(
                             'Nhắc nhở',
                             style: TextStyle(fontWeight: FontWeight.bold),
@@ -239,7 +278,7 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
                                 setState(() => _remind5Days = val ?? false),
                           ),
                         ],
-                      ), 
+                      ),
                     ),
                   ),
                 ),
@@ -322,6 +361,7 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
 
   Widget _buildDateTimePicker({required String label, required bool isStart}) {
     final date = isStart ? _startDate : _endDate;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -347,7 +387,9 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
             child: Center(
               child: Text(
                 date != null
-                    ? '${date.day}/${date.month}/${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}'
+                    ? '${date.day}/${date.month}/${date.year} '
+                    '${date.hour.toString().padLeft(2, '0')}:'
+                    '${date.minute.toString().padLeft(2, '0')}'
                     : 'Chọn ngày & giờ',
                 style: TextStyle(
                   fontWeight: FontWeight.w500,
