@@ -1,12 +1,14 @@
 import 'package:app/core/theme/app_colors.dart';
 import 'package:app/models/deadline_task.dart';
-import '../../repositories/task_repository.dart';
+import 'package:app/repositories/task_repository.dart';
+import 'package:app/screens/task/task_detail_screen.dart';
+import 'package:app/services/task_service.dart';
 import '../task/task_create_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 
-class CalendarWeekScreen extends StatefulWidget {
+class CalendarWeekScreen extends StatefulWidget { //week
   final DateTime focusedDay;
   final Function(DateTime) onDaySelected;
 
@@ -22,6 +24,7 @@ class CalendarWeekScreen extends StatefulWidget {
 
 class _CalendarWeekScreenState extends State<CalendarWeekScreen> {
   final TaskRepository _taskRepository = TaskRepository();
+  late final TaskService _taskService;
   final _auth = FirebaseAuth.instance;
   late Map<DateTime, List<Task>> _tasksByDay;
   late List<Task> _selectedTasks;
@@ -31,6 +34,7 @@ class _CalendarWeekScreenState extends State<CalendarWeekScreen> {
   @override
   void initState() {
     super.initState();
+    _taskService = TaskService(_taskRepository);
     _focusedDay = widget.focusedDay;
     _selectedDay = _focusedDay;
     _selectedTasks = [];
@@ -45,11 +49,7 @@ class _CalendarWeekScreenState extends State<CalendarWeekScreen> {
     final allTasks = await _taskRepository.getTasksByUser(user.uid);
     final Map<DateTime, List<Task>> groupedTasks = {};
     for (final task in allTasks) {
-      final date = DateTime.utc(
-        task.dueAt.year,
-        task.dueAt.month,
-        task.dueAt.day,
-      );
+      final date = DateTime.utc(task.dueAt.year, task.dueAt.month, task.dueAt.day);
       if (groupedTasks[date] == null) {
         groupedTasks[date] = [];
       }
@@ -69,9 +69,37 @@ class _CalendarWeekScreenState extends State<CalendarWeekScreen> {
   }
 
   void _navigateToCreateScreen() async {
-    final result = await Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const TaskCreateScreen()));
+    final result = await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const TaskCreateScreen()),
+    );
+
+    if (result == true) {
+      _loadAllTasksAndTasksForSelectedDay();
+    }
+  }
+
+  void _navigateToDetailScreen(Task task) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    final docId = task.id;
+    if (docId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Lỗi: Không tìm thấy ID của công việc.')),
+      );
+      return;
+    }
+
+    final result = await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => TaskDetailScreen(
+          task: task,
+          docId: docId,
+          taskService: _taskService,
+          userId: user.uid,
+        ),
+      ),
+    );
 
     if (result == true) {
       _loadAllTasksAndTasksForSelectedDay();
@@ -104,10 +132,7 @@ class _CalendarWeekScreenState extends State<CalendarWeekScreen> {
             headerStyle: const HeaderStyle(
               titleCentered: true,
               formatButtonVisible: false,
-              titleTextStyle: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              titleTextStyle: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             calendarBuilders: CalendarBuilders(
               prioritizedBuilder: (context, day, focusedDay) {
@@ -135,10 +160,7 @@ class _CalendarWeekScreenState extends State<CalendarWeekScreen> {
                           padding: const EdgeInsets.only(top: 8.0),
                           child: Text(
                             '${day.day}',
-                            style: TextStyle(
-                              color: isSelected ? Colors.white : Colors.black,
-                              fontWeight: FontWeight.bold,
-                            ),
+                            style: TextStyle(color: isSelected ? Colors.white : Colors.black, fontWeight: FontWeight.bold),
                           ),
                         ),
                       ),
@@ -147,10 +169,7 @@ class _CalendarWeekScreenState extends State<CalendarWeekScreen> {
                           alignment: Alignment.bottomCenter,
                           child: Container(
                             margin: const EdgeInsets.only(bottom: 8),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
                               color: AppColors.background,
                               borderRadius: BorderRadius.circular(10),
@@ -190,9 +209,8 @@ class _CalendarWeekScreenState extends State<CalendarWeekScreen> {
           Expanded(
             child: Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(24),
               decoration: const BoxDecoration(
-                color: AppColors.white,
+                color: Colors.white,
                 borderRadius: BorderRadius.only(
                   topLeft: Radius.circular(32),
                   topRight: Radius.circular(32),
@@ -215,15 +233,8 @@ class _CalendarWeekScreenState extends State<CalendarWeekScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: dow
-            .map(
-              (day) => Text(
-            day,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 12,
-            ),
-          ),
-        )
+            .map((day) =>
+                Text(day, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)))
             .toList(),
       ),
     );
@@ -234,7 +245,7 @@ class _CalendarWeekScreenState extends State<CalendarWeekScreen> {
       mainAxisAlignment: MainAxisAlignment.start,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        const SizedBox(height: 80), // Increased from 48 to push it down more
+        const SizedBox(height: 80),
         const Text(
           'Chưa có công việc',
           style: TextStyle(fontSize: 16, color: AppColors.textGrey),
@@ -246,15 +257,12 @@ class _CalendarWeekScreenState extends State<CalendarWeekScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          child: const Icon(Icons.add, color: AppColors.white),
+          child: const Icon(Icons.add, color: Colors.white),
         ),
         const SizedBox(height: 16),
         const Text(
           'Tạo công việc mới',
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
         ),
       ],
     );
@@ -262,55 +270,43 @@ class _CalendarWeekScreenState extends State<CalendarWeekScreen> {
 
   Widget _buildTaskListView() {
     return ListView.builder(
+      padding: const EdgeInsets.all(20),
       itemCount: _selectedTasks.length,
       itemBuilder: (context, index) {
         final task = _selectedTasks[index];
         final progressValue = task.progress / 100;
 
-        return Card(
-          margin: const EdgeInsets.symmetric(vertical: 8),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          elevation: 2,
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      task.title,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    Text(
-                      '${task.progress}%',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: LinearProgressIndicator(
-                    value: progressValue,
-                    backgroundColor: AppColors.progressBg,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      _getTaskProgressColor(task.progress),
-                    ),
-                    minHeight: 10,
+        return InkWell(
+          onTap: () => _navigateToDetailScreen(task),
+          child: Card(
+            color: const Color(0xFFF6F1FF),
+            elevation: 0,
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(task.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text('${task.progress}%', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 14)),
+                    ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: LinearProgressIndicator(
+                      value: progressValue,
+                      backgroundColor: AppColors.progressBg,
+                      valueColor: AlwaysStoppedAnimation<Color>(_getTaskProgressColor(task.progress)),
+                      minHeight: 10,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         );

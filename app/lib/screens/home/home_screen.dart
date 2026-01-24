@@ -68,7 +68,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         return Scaffold(
           backgroundColor: AppColors.background,
 
-          // ✅ AppBar chữ đen + chuông
           appBar: AppBar(
             backgroundColor: Colors.transparent,
             elevation: 0,
