@@ -268,6 +268,7 @@ class _TaskUpdateScreenState extends State<TaskUpdateScreen> {
 
     try {
       await widget.taskService.updateTask(
+        userId: widget.userId,
         docId: widget.docId,
         task: updatedTask,
       );
