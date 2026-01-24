@@ -25,7 +25,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedDay = _focusedDay; // Pre-select today
+    _selectedDay = _focusedDay;
     _tasksByDay = {};
     _loadTasks();
   }
@@ -38,11 +38,7 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
     final Map<DateTime, List<Task>> groupedTasks = {};
 
     for (final task in tasks) {
-      final date = DateTime.utc(
-        task.dueAt.year,
-        task.dueAt.month,
-        task.dueAt.day,
-      );
+      final date = DateTime.utc(task.dueAt.year, task.dueAt.month, task.dueAt.day);
       if (groupedTasks[date] == null) {
         groupedTasks[date] = [];
       }
@@ -60,14 +56,12 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
     return _tasksByDay[DateTime.utc(day.year, day.month, day.day)] ?? [];
   }
 
-  // Helper function to determine indicator color based on task count
   Color _getIndicatorColor(int taskCount) {
     if (taskCount >= 3) {
       return Colors.red;
     } else if (taskCount == 2) {
-      return AppColors.primary; // Purple color
+      return AppColors.primary;
     }
-    // Default for 1 task
     return Colors.green;
   }
 
@@ -91,27 +85,21 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
             headerStyle: const HeaderStyle(
               titleCentered: true,
               formatButtonVisible: false,
-              titleTextStyle: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              titleTextStyle:
+                  TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             calendarBuilders: CalendarBuilders(
               prioritizedBuilder: (context, day, focusedDay) {
-                if (day.month != _focusedDay.month) {
-                  return Container(margin: const EdgeInsets.all(4.0));
-                }
-
                 final bool isSelected = isSameDay(_selectedDay, day);
+                final bool isOutside = day.month != _focusedDay.month;
+
                 final tasksOnDay = _getTasksForDay(day);
-                final Color indicatorColor = _getIndicatorColor(
-                  tasksOnDay.length,
-                );
+                final Color indicatorColor = _getIndicatorColor(tasksOnDay.length);
 
                 return Container(
                   margin: const EdgeInsets.all(4.0),
                   decoration: BoxDecoration(
-                    color: isSelected ? AppColors.primary : AppColors.white,
+                    color: isSelected ? AppColors.primary : Colors.white,
                     borderRadius: BorderRadius.circular(12.0),
                     boxShadow: const [
                       BoxShadow(
@@ -130,22 +118,25 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
                           child: Text(
                             '${day.day}',
                             style: TextStyle(
-                              color: isSelected ? Colors.white : Colors.black,
+                              color: isSelected
+                                  ? Colors.white
+                                  : isOutside
+                                      ? Colors.grey.shade400
+                                      : Colors.black,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
                       ),
-                      if (tasksOnDay.isNotEmpty)
+                      if (tasksOnDay.isNotEmpty && !isOutside)
                         Align(
                           alignment: Alignment.bottomCenter,
                           child: Padding(
                             padding: const EdgeInsets.only(bottom: 8.0),
                             child: CircleAvatar(
                               radius: 10,
-                              backgroundColor: isSelected
-                                  ? Colors.white
-                                  : indicatorColor,
+                              backgroundColor:
+                                  isSelected ? Colors.white : indicatorColor,
                               child: Text(
                                 '${tasksOnDay.length}',
                                 style: TextStyle(
@@ -190,15 +181,8 @@ class _CalendarMonthScreenState extends State<CalendarMonthScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: dow
-            .map(
-              (day) => Text(
-            day,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 12,
-            ),
-          ),
-        )
+            .map((day) =>
+                Text(day, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)))
             .toList(),
       ),
     );

@@ -126,8 +126,6 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
   Widget build(BuildContext context) {
     final userId = FirebaseAuth.instance.currentUser!.uid;
 
-    // ✅ Task "preview" để lấy progressColor theo logic deadline_task.dart
-    // Không lưu DB, không schedule, không analytics => không ảnh hưởng tạo task
     final previewTask = Task(
       id: null,
       title: _titleController.text.trim(),
