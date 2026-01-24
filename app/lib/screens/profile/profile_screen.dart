@@ -74,14 +74,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _menuItem(
                 'Sửa trang cá nhân',
                     () async {
-                  final result = await Navigator.push(
-                    context,
+                  final result = await Navigator.of(context, rootNavigator: true).push(
                     MaterialPageRoute(
                       builder: (_) => const EditProfileScreen(),
                     ),
                   );
 
-                  /// 🔥 QUAY LẠI → RELOAD USER
                   if (result == true) {
                     await _reloadUser();
                   }
@@ -93,8 +91,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _menuItem(
                 'Đổi mật khẩu',
                     () {
-                  Navigator.push(
-                    context,
+                  Navigator.of(context, rootNavigator: true).push(
                     MaterialPageRoute(
                       builder: (_) => const ChangePasswordScreen(),
                     ),
@@ -102,8 +99,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 },
               ),
 
-              /// KHOẢNG CÁCH VỪA PHẢI
-              const SizedBox(height: 56),
+              const SizedBox(height: 80),
 
               SizedBox(
                 width: 200,
