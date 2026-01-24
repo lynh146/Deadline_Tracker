@@ -34,7 +34,6 @@ class _TaskUpdateScreenState extends State<TaskUpdateScreen> {
     _currentProgress = widget.task.progress.toDouble();
     _descController = TextEditingController(text: widget.task.description);
 
-    // Initialize reminder option based on existing remindAt
     if (widget.task.remindAt.isNotEmpty) {
       final diff = widget.task.dueAt
           .difference(widget.task.remindAt.first)
@@ -42,7 +41,7 @@ class _TaskUpdateScreenState extends State<TaskUpdateScreen> {
       if (diff == 1 || diff == 3 || diff == 5) {
         _reminderOption = diff;
       } else {
-        _reminderOption = 1; // default
+        _reminderOption = 1;
       }
     } else {
       _reminderOption = 1;
@@ -62,24 +61,13 @@ class _TaskUpdateScreenState extends State<TaskUpdateScreen> {
       appBar: AppBar(
         title: const Text(
           "Cập nhật",
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
+
         leading: const BackButton(color: AppColors.textPrimary),
-        actions: [
-          IconButton(
-            icon: const Icon(
-              Icons.notifications_none,
-              color: AppColors.textPrimary,
-            ),
-            onPressed: () {},
-          ),
-        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
