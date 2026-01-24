@@ -1,5 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:app/core/theme/app_colors.dart';
 import 'edit_profile_screen.dart';
 import 'change_password_screen.dart';
@@ -13,11 +16,35 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   User? user = FirebaseAuth.instance.currentUser;
+  bool _isUploading = false;
 
   Future<void> _reloadUser() async {
     await FirebaseAuth.instance.currentUser?.reload();
     user = FirebaseAuth.instance.currentUser;
     setState(() {});
+  }
+
+  Future<void> _changeAvatar() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+    if (pickedFile == null || user == null) return;
+
+    setState(() => _isUploading = true);
+
+    try {
+      final file = File(pickedFile.path);
+      final ref = FirebaseStorage.instance.ref('avatars/${user!.uid}');
+      await ref.putFile(file);
+      final url = await ref.getDownloadURL();
+
+      await user!.updatePhotoURL(url);
+      await _reloadUser();
+    } catch (e) {
+      // Handle errors here
+    } finally {
+      setState(() => _isUploading = false);
+    }
   }
 
   @override
@@ -38,30 +65,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   CircleAvatar(
                     radius: 48,
                     backgroundColor: Colors.grey.shade300,
-                    child: const Icon(
-                      Icons.person,
-                      size: 42,
-                      color: Colors.white,
-                    ),
+                    backgroundImage: user?.photoURL != null ? NetworkImage(user!.photoURL!) : null,
+                    child: _isUploading
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : (user?.photoURL == null
+                            ? const Icon(Icons.person, size: 42, color: Colors.white)
+                            : null),
                   ),
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AppColors.primary,
+                  GestureDetector(
+                    onTap: _isUploading ? null : _changeAvatar,
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.primary,
+                      ),
+                      child: const Icon(Icons.add, size: 16, color: Colors.white),
                     ),
-                    child: const Icon(Icons.add, size: 16, color: Colors.white),
                   ),
                 ],
               ),
 
               const SizedBox(height: 12),
 
-              /// NAME (LUÔN CẬP NHẬT THEO FIREBASE)
+              /// NAME
               Text(
-                user?.displayName?.isNotEmpty == true
-                    ? user!.displayName!
-                    : 'Chưa đặt tên',
+                user?.displayName?.isNotEmpty == true ? user!.displayName! : 'Chưa đặt tên',
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
@@ -73,13 +102,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
               _menuItem(
                 'Sửa trang cá nhân',
-                    () async {
+                () async {
                   final result = await Navigator.of(context, rootNavigator: true).push(
                     MaterialPageRoute(
                       builder: (_) => const EditProfileScreen(),
                     ),
                   );
-
                   if (result == true) {
                     await _reloadUser();
                   }
@@ -90,7 +118,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
               _menuItem(
                 'Đổi mật khẩu',
-                    () {
+                () {
                   Navigator.of(context, rootNavigator: true).push(
                     MaterialPageRoute(
                       builder: (_) => const ChangePasswordScreen(),
@@ -108,11 +136,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   onPressed: () async {
                     await FirebaseAuth.instance.signOut();
                     if (!mounted) return;
-                    Navigator.pushNamedAndRemoveUntil(
-                      context,
-                      '/',
-                          (route) => false,
-                    );
+                    Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
