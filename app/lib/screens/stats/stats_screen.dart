@@ -1,16 +1,16 @@
+import 'package:app/screens/notifications/notification_bell.dart';
 import 'package:flutter/material.dart';
-// ĐÃ XÓA import 'task_item_card.dart' (Fix lỗi uri_does_not_exist)
 import '../../core/theme/app_colors.dart';
 import '../../models/deadline_task.dart';
 import '../../services/task_service.dart';
 import 'status_list_screen.dart';
 import '../task/task_detail_screen.dart';
+import '../notifications/notification_screen.dart';
 
 class StatsScreen extends StatefulWidget {
   final TaskService taskService;
   final String userId;
 
-  // Fix warning: use_super_parameters
   const StatsScreen({
     super.key,
     required this.taskService,
@@ -22,7 +22,6 @@ class StatsScreen extends StatefulWidget {
 }
 
 class _StatsScreenState extends State<StatsScreen> {
-  // Hàm refresh để reload dữ liệu
   void _refresh() => setState(() {});
 
   @override
@@ -37,16 +36,28 @@ class _StatsScreenState extends State<StatsScreen> {
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
         leading: const BackButton(color: Colors.black),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_none, color: Colors.black),
-            onPressed: () {},
+          Padding(
+            padding: const EdgeInsets.only(right: 10),
+            child: NotificationBell(
+              userId: widget.userId,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => NotificationScreen(userId: widget.userId),
+                  ),
+                );
+              },
+            ),
           ),
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        padding: const EdgeInsets.fromLTRB(20, 10, 20, 140),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -59,35 +70,99 @@ class _StatsScreenState extends State<StatsScreen> {
               mainAxisSpacing: 12,
               crossAxisSpacing: 12,
               children: [
-                _buildStatBox(
-                  "Đã hoàn thành",
-                  TaskStatus.completed,
-                  AppColors.success,
-                  Icons.check_circle,
+                _buildStatusBox(
+                  title: "Đã hoàn thành",
+                  future: widget.taskService.getTasksByStatus(
+                    widget.userId,
+                    TaskStatus.completed,
+                  ),
+                  iconColor: AppColors.success,
+                  icon: Icons.check_circle,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => StatusListScreen(
+                          title: "Đã hoàn thành",
+                          status: TaskStatus.completed,
+                          type: StatusListType.status,
+                          taskService: widget.taskService,
+                          userId: widget.userId,
+                        ),
+                      ),
+                    ).then((_) => _refresh());
+                  },
                 ),
-                _buildStatBox(
-                  "Đang làm",
-                  TaskStatus.inProgress,
-                  Colors.amber,
-                  Icons.hourglass_top,
+                _buildStatusBox(
+                  title: "Đang làm",
+                  future: widget.taskService.getTasksByStatus(
+                    widget.userId,
+                    TaskStatus.inProgress,
+                  ),
+                  iconColor: Colors.amber,
+                  icon: Icons.hourglass_top,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => StatusListScreen(
+                          title: "Đang làm",
+                          status: TaskStatus.inProgress,
+                          type: StatusListType.status,
+                          taskService: widget.taskService,
+                          userId: widget.userId,
+                        ),
+                      ),
+                    ).then((_) => _refresh());
+                  },
                 ),
-                _buildStatBox(
-                  "Sắp tới hạn",
-                  TaskStatus.upcoming,
-                  Colors.yellow,
-                  Icons.warning_amber_rounded,
+                _buildStatusBox(
+                  title: "Chưa làm",
+                  future: widget.taskService.getNotStartedTasks(widget.userId),
+                  iconColor: Colors.yellow,
+                  icon: Icons.warning_amber_rounded,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => StatusListScreen(
+                          title: "Chưa làm",
+                          type: StatusListType.notStarted,
+                          taskService: widget.taskService,
+                          userId: widget.userId,
+                        ),
+                      ),
+                    ).then((_) => _refresh());
+                  },
                 ),
-                _buildStatBox(
-                  "Hết hạn",
-                  TaskStatus.overdue,
-                  AppColors.danger,
-                  Icons.cancel,
+                _buildStatusBox(
+                  title: "Hết hạn",
+                  future: widget.taskService.getTasksByStatus(
+                    widget.userId,
+                    TaskStatus.overdue,
+                  ),
+                  iconColor: AppColors.danger,
+                  icon: Icons.cancel,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => StatusListScreen(
+                          title: "Hết hạn",
+                          status: TaskStatus.overdue,
+                          type: StatusListType.status,
+                          taskService: widget.taskService,
+                          userId: widget.userId,
+                        ),
+                      ),
+                    ).then((_) => _refresh());
+                  },
                 ),
               ],
             ),
             const SizedBox(height: 20),
 
-            // --- 2. KHUNG "CẦN CHÚ Ý" ---
+            // --- 2. KHUNG "SẮP HẾT HẠN" ---
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -104,7 +179,7 @@ class _StatsScreenState extends State<StatsScreen> {
                           Icon(Icons.warning, color: Colors.amber, size: 20),
                           SizedBox(width: 8),
                           Text(
-                            "Cần chú ý",
+                            "Sắp hết hạn",
                             style: TextStyle(fontWeight: FontWeight.bold),
                           ),
                         ],
@@ -115,8 +190,8 @@ class _StatsScreenState extends State<StatsScreen> {
                             context,
                             MaterialPageRoute(
                               builder: (_) => StatusListScreen(
-                                title: "Cần chú ý",
-                                status: TaskStatus.overdue,
+                                title: "Sắp hết hạn",
+                                type: StatusListType.dueSoon,
                                 taskService: widget.taskService,
                                 userId: widget.userId,
                               ),
@@ -135,9 +210,8 @@ class _StatsScreenState extends State<StatsScreen> {
                   ),
                   const SizedBox(height: 10),
 
-                  // Load dữ liệu Overdue từ Service (Lấy 2 cái mới nhất)
                   FutureBuilder<List<Task>>(
-                    future: widget.taskService.getOverdueLatest(
+                    future: widget.taskService.getDueSoonLatest(
                       widget.userId,
                       limit: 2,
                     ),
@@ -146,14 +220,14 @@ class _StatsScreenState extends State<StatsScreen> {
                         return const Padding(
                           padding: EdgeInsets.only(top: 8),
                           child: Text(
-                            "Không có việc trễ hạn.",
+                            "Không có việc sắp hết hạn.",
                             style: TextStyle(fontSize: 12, color: Colors.grey),
                           ),
                         );
                       }
                       return Column(
                         children: snapshot.data!
-                            .map((t) => _buildOverdueRow(t))
+                            .map((t) => _buildDueSoonRow(t))
                             .toList(),
                       );
                     },
@@ -173,8 +247,9 @@ class _StatsScreenState extends State<StatsScreen> {
             FutureBuilder<List<Task>>(
               future: widget.taskService.getInProgressSorted(widget.userId),
               builder: (context, snapshot) {
-                if (!snapshot.hasData || snapshot.data!.isEmpty)
+                if (!snapshot.hasData || snapshot.data!.isEmpty) {
                   return const Text("Chưa có công việc nào.");
+                }
 
                 return Column(
                   children: snapshot.data!
@@ -187,8 +262,7 @@ class _StatsScreenState extends State<StatsScreen> {
                               MaterialPageRoute(
                                 builder: (_) => TaskDetailScreen(
                                   task: task,
-                                  docId: task.id
-                                      .toString(), // Chuyển int -> String để tránh lỗi
+                                  docId: task.id!,
                                   taskService: widget.taskService,
                                   userId: widget.userId,
                                 ),
@@ -207,30 +281,20 @@ class _StatsScreenState extends State<StatsScreen> {
     );
   }
 
-  Widget _buildStatBox(
-    String title,
-    TaskStatus status,
-    Color iconColor,
-    IconData icon,
-  ) {
+  Widget _buildStatusBox({
+    required String title,
+    required Future<List<Task>> future,
+    required Color iconColor,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
     return FutureBuilder<List<Task>>(
-      future: widget.taskService.getTasksByStatus(widget.userId, status),
+      future: future,
       builder: (context, snapshot) {
-        String count = snapshot.hasData ? "${snapshot.data!.length}" : "0";
+        final count = snapshot.hasData ? "${snapshot.data!.length}" : "0";
+
         return GestureDetector(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => StatusListScreen(
-                  title: title,
-                  status: status,
-                  taskService: widget.taskService,
-                  userId: widget.userId,
-                ),
-              ),
-            ).then((_) => _refresh());
-          },
+          onTap: onTap,
           child: Container(
             decoration: BoxDecoration(
               color: Colors.white,
@@ -276,7 +340,7 @@ class _StatsScreenState extends State<StatsScreen> {
     );
   }
 
-  Widget _buildOverdueRow(Task t) {
+  Widget _buildDueSoonRow(Task t) {
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -284,7 +348,7 @@ class _StatsScreenState extends State<StatsScreen> {
           MaterialPageRoute(
             builder: (_) => TaskDetailScreen(
               task: t,
-              docId: t.id.toString(),
+              docId: t.id!,
               taskService: widget.taskService,
               userId: widget.userId,
             ),
@@ -313,16 +377,16 @@ class _StatsScreenState extends State<StatsScreen> {
                     ),
                   ),
                   Text(
-                    "Hết hạn: ${t.dueAt.day}/${t.dueAt.month}",
+                    "Đến hạn: ${t.dueAt.day}/${t.dueAt.month}",
                     style: const TextStyle(fontSize: 11, color: Colors.grey),
                   ),
                 ],
               ),
             ),
             const Text(
-              "Trễ hạn",
+              "Sắp hết hạn",
               style: TextStyle(
-                color: AppColors.danger,
+                color: Colors.orange,
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
               ),
@@ -341,7 +405,6 @@ class TaskItemCard extends StatelessWidget {
   final Task task;
   final VoidCallback onTap;
 
-  // Fix warning: use_super_parameters
   const TaskItemCard({super.key, required this.task, required this.onTap});
 
   @override

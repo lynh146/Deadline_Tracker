@@ -5,18 +5,22 @@ import '../../models/deadline_task.dart';
 import '../../services/task_service.dart';
 import '../task/task_detail_screen.dart';
 
+enum StatusListType { status, notStarted, dueSoon }
+
 class StatusListScreen extends StatefulWidget {
   final String title;
-  final TaskStatus status;
+  final TaskStatus? status;
+  final StatusListType type;
   final TaskService taskService;
   final String userId;
 
   const StatusListScreen({
     Key? key,
     required this.title,
-    required this.status,
     required this.taskService,
     required this.userId,
+    this.status,
+    this.type = StatusListType.status,
   }) : super(key: key);
 
   @override
@@ -24,10 +28,62 @@ class StatusListScreen extends StatefulWidget {
 }
 
 class _StatusListScreenState extends State<StatusListScreen> {
-  int _tab = 2; // Mặc định tab "Tất cả"
+  int _tab = 2;
+
+  int _dueSoonTab = 1;
+
+  DateTime _startOfDay(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  DateTime _startOfWeek(DateTime today) {
+    final start = _startOfDay(today);
+    return start.subtract(Duration(days: today.weekday - DateTime.monday));
+  }
+
+  List<Task> _applyWeekMonthAllFilter(List<Task> tasks) {
+    final now = DateTime.now();
+
+    if (_tab == 0) {
+      final startWeek = _startOfWeek(now);
+      final endWeek = startWeek.add(const Duration(days: 7));
+      tasks = tasks
+          .where(
+            (t) => !t.dueAt.isBefore(startWeek) && t.dueAt.isBefore(endWeek),
+          )
+          .toList();
+    } else if (_tab == 1) {
+      // Tháng này
+      tasks = tasks
+          .where((t) => t.dueAt.month == now.month && t.dueAt.year == now.year)
+          .toList();
+    }
+
+    tasks.sort((a, b) {
+      final dateCompare = a.dueAt.compareTo(b.dueAt);
+      if (dateCompare != 0) return dateCompare;
+      return a.progress.compareTo(b.progress);
+    });
+
+    return tasks;
+  }
+
+  Future<List<Task>> _loadTasks() {
+    if (widget.type == StatusListType.dueSoon) {
+      final days = _dueSoonTab == 0 ? 1 : (_dueSoonTab == 1 ? 3 : 5);
+      return widget.taskService.getDueSoonTasks(widget.userId, days: days);
+    }
+
+    if (widget.type == StatusListType.notStarted) {
+      return widget.taskService.getNotStartedTasks(widget.userId);
+    }
+
+    // status
+    return widget.taskService.getTasksByStatus(widget.userId, widget.status!);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final isDueSoon = widget.type == StatusListType.dueSoon;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -41,6 +97,8 @@ class _StatusListScreenState extends State<StatusListScreen> {
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
+        surfaceTintColor: Colors.transparent, // giảm flash đen
+        scrolledUnderElevation: 0, // giảm flash đen (Material3)
         leading: const BackButton(color: Colors.black),
       ),
       body: Column(
@@ -54,74 +112,71 @@ class _StatusListScreenState extends State<StatusListScreen> {
               borderRadius: BorderRadius.circular(20),
             ),
             child: Row(
-              children: ["Tuần này", "Tháng này", "Tất cả"]
-                  .asMap()
-                  .entries
-                  .map(
-                    (e) => Expanded(
-                      child: GestureDetector(
-                        onTap: () => setState(() => _tab = e.key),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: _tab == e.key
-                                ? AppColors.surface
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(15),
-                          ),
-                          child: Text(
-                            e.value,
-                            style: TextStyle(
-                              fontWeight: _tab == e.key
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
+              children:
+                  (isDueSoon
+                          ? ["1 ngày", "3 ngày", "5 ngày"]
+                          : ["Tuần này", "Tháng này", "Tất cả"])
+                      .asMap()
+                      .entries
+                      .map(
+                        (e) => Expanded(
+                          child: GestureDetector(
+                            onTap: () => setState(() {
+                              if (isDueSoon) {
+                                _dueSoonTab = e.key;
+                              } else {
+                                _tab = e.key;
+                              }
+                            }),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: (isDueSoon ? _dueSoonTab : _tab) == e.key
+                                    ? AppColors.surface
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(15),
+                              ),
+                              child: Text(
+                                e.value,
+                                style: TextStyle(
+                                  fontWeight:
+                                      (isDueSoon ? _dueSoonTab : _tab) == e.key
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                  )
-                  .toList(),
+                      )
+                      .toList(),
             ),
           ),
 
           // 2. LIST VIEW
           Expanded(
             child: FutureBuilder<List<Task>>(
-              future: widget.taskService.getTasksByStatus(
-                widget.userId,
-                widget.status,
-              ),
+              future: _loadTasks(),
               builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting)
+                if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
+                }
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
                   return const Center(child: Text("Không có công việc nào."));
                 }
 
-                // Logic Lọc (Filter) bằng tay, không cần thư viện
                 List<Task> tasks = snapshot.data!;
-                final now = DateTime.now();
 
-                if (_tab == 0) {
-                  // Tuần này: +/- 7 ngày
-                  tasks = tasks
-                      .where((t) => t.dueAt.difference(now).inDays.abs() < 7)
-                      .toList();
-                } else if (_tab == 1) {
-                  // Tháng này: so sánh tháng và năm
-                  tasks = tasks
-                      .where(
-                        (t) =>
-                            t.dueAt.month == now.month &&
-                            t.dueAt.year == now.year,
-                      )
-                      .toList();
+                // dueSoon: service đã lọc đúng NGÀY + sort rồi
+                // còn lại: lọc tuần/tháng/tất cả ở đây
+                if (!isDueSoon) {
+                  tasks = _applyWeekMonthAllFilter(tasks);
                 }
 
-                if (tasks.isEmpty)
+                if (tasks.isEmpty) {
                   return const Center(child: Text("Không có kết quả lọc."));
+                }
 
                 return ListView.builder(
                   padding: const EdgeInsets.all(16),
@@ -133,7 +188,7 @@ class _StatusListScreenState extends State<StatusListScreen> {
                       MaterialPageRoute(
                         builder: (_) => TaskDetailScreen(
                           task: tasks[i],
-                          docId: tasks[i].id.toString(),
+                          docId: tasks[i].id!,
                           taskService: widget.taskService,
                           userId: widget.userId,
                         ),

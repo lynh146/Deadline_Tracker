@@ -210,7 +210,11 @@ class TaskDetailScreen extends StatelessWidget {
           ),
           TextButton(
             onPressed: () async {
-              await taskService.deleteTask(docId, task);
+              await taskService.deleteTask(
+                userId: userId,
+                docId: docId,
+                task: task,
+              );
               if (context.mounted) {
                 Navigator.pop(ctx);
                 Navigator.pop(context);
