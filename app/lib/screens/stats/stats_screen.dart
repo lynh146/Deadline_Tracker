@@ -1,5 +1,6 @@
 import 'package:app/screens/notifications/notification_bell.dart';
 import 'package:flutter/material.dart';
+// ĐÃ XÓA import 'task_item_card.dart' (Fix lỗi uri_does_not_exist)
 import '../../core/theme/app_colors.dart';
 import '../../models/deadline_task.dart';
 import '../../services/task_service.dart';
@@ -11,6 +12,7 @@ class StatsScreen extends StatefulWidget {
   final TaskService taskService;
   final String userId;
 
+  // Fix warning: use_super_parameters
   const StatsScreen({
     super.key,
     required this.taskService,
@@ -22,6 +24,7 @@ class StatsScreen extends StatefulWidget {
 }
 
 class _StatsScreenState extends State<StatsScreen> {
+  // Hàm refresh để reload dữ liệu
   void _refresh() => setState(() {});
 
   @override
@@ -29,16 +32,24 @@ class _StatsScreenState extends State<StatsScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text(
-          "Trạng thái",
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
+        automaticallyImplyLeading: false, // 1. Tắt nút Back tự động
+        centerTitle: false,
+        title: const Padding(
+          padding: EdgeInsets.only(left: 8.0),
+          child: Text(
+            "Trạng thái",
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+              fontSize: 24,
+            ),
+          ),
         ),
-        centerTitle: true,
+
         backgroundColor: Colors.transparent,
         elevation: 0,
-        surfaceTintColor: Colors.transparent,
-        scrolledUnderElevation: 0,
-        leading: const BackButton(color: Colors.black),
+        surfaceTintColor: Colors.transparent, // giảm flash đen khi back
+        scrolledUnderElevation: 0, // giảm flash đen (Material3)
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 10),
@@ -57,7 +68,12 @@ class _StatsScreenState extends State<StatsScreen> {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 10, 20, 140),
+        padding: const EdgeInsets.fromLTRB(
+          20,
+          10,
+          20,
+          140,
+        ), // chừa dưới cho nav + nút +
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -210,6 +226,7 @@ class _StatsScreenState extends State<StatsScreen> {
                   ),
                   const SizedBox(height: 10),
 
+                  // Load dữ liệu Sắp hết hạn từ Service (Lấy 2 cái gần nhất trong 1/3/5 ngày)
                   FutureBuilder<List<Task>>(
                     future: widget.taskService.getDueSoonLatest(
                       widget.userId,
@@ -405,6 +422,7 @@ class TaskItemCard extends StatelessWidget {
   final Task task;
   final VoidCallback onTap;
 
+  // Fix warning: use_super_parameters
   const TaskItemCard({super.key, required this.task, required this.onTap});
 
   @override

@@ -1,10 +1,9 @@
-// screens/task_detail_screen.dart
 import 'package:app/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/deadline_task.dart';
 import '../../services/task_service.dart';
-import 'task_update_screen.dart'; // Import màn hình update
+import 'task_update_screen.dart';
 
 class TaskDetailScreen extends StatelessWidget {
   final Task task;
@@ -29,7 +28,8 @@ class TaskDetailScreen extends StatelessWidget {
           "Chi tiết",
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            color: AppColors.textPrimary,
+            // 1. SỬA MÀU CHỮ THÀNH ĐEN TẠI ĐÂY
+            color: Colors.black,
           ),
         ),
         centerTitle: true,
@@ -37,9 +37,12 @@ class TaskDetailScreen extends StatelessWidget {
         elevation: 0,
         leading: const BackButton(color: AppColors.textPrimary),
       ),
-      body: Center(
+
+      // 2. SỬA BODY: Thay Center bằng SingleChildScrollView để nội dung nằm cao lên
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+
         child: Container(
-          margin: const EdgeInsets.all(24),
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             color: AppColors.white,
@@ -47,7 +50,8 @@ class TaskDetailScreen extends StatelessWidget {
             boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
           ),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+
             children: [
               Text(
                 task.title,
