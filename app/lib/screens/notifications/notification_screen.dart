@@ -18,7 +18,11 @@ class NotificationScreen extends StatelessWidget {
       .collection('notifications');
 
   Future<void> _markAllRead() async {
-    final q = await _col.where('isRead', isEqualTo: false).get();
+    final q = await _col
+        .where('isRead', isEqualTo: false)
+        .where('visibleAt', isLessThanOrEqualTo: Timestamp.now())
+        .get();
+
     final batch = FirebaseFirestore.instance.batch();
     for (final d in q.docs) {
       batch.update(d.reference, {'isRead': true});

@@ -1,79 +1,76 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class NotificationBell extends StatelessWidget {
+  final String userId;
+  final VoidCallback onTap;
+
   const NotificationBell({
     super.key,
     required this.userId,
     required this.onTap,
-    this.iconColor = Colors.black,
   });
 
-  final String userId;
-  final VoidCallback onTap;
-  final Color iconColor;
-
-  CollectionReference<Map<String, dynamic>> get _col => FirebaseFirestore
-      .instance
-      .collection('users')
-      .doc(userId)
-      .collection('notifications');
-
-  Stream<int> _unreadCount() {
-    return _col
+  Stream<int> _watchUnreadCount() {
+    return FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .collection('notifications')
         .where('visibleAt', isLessThanOrEqualTo: Timestamp.now())
         .snapshots()
-        .map((snapshot) {
-          return snapshot.docs.where((d) => d.data()['isRead'] == false).length;
+        .map((snap) {
+          int unread = 0;
+          for (final d in snap.docs) {
+            final data = d.data();
+            if (data['isRead'] != true) unread++;
+          }
+          return unread;
         });
   }
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<int>(
-      stream: _unreadCount(),
+      stream: _watchUnreadCount(),
       builder: (context, snap) {
-        final unread = snap.data ?? 0;
+        final count = snap.hasError ? 0 : (snap.data ?? 0);
 
         return InkWell(
-          borderRadius: BorderRadius.circular(24),
           onTap: onTap,
-          child: SizedBox(
-            width: 44,
-            height: 44,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Icon(Icons.notifications_none, size: 26, color: iconColor),
-
-                if (unread > 0)
-                  Positioned(
-                    right: 6,
-                    top: 6,
-                    child: Container(
-                      height: 16,
-                      padding: const EdgeInsets.symmetric(horizontal: 5),
-                      constraints: const BoxConstraints(minWidth: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.white, width: 1.5),
-                      ),
-                      child: Center(
-                        child: Text(
-                          unread > 99 ? '99+' : unread.toString(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            height: 1,
-                          ),
-                        ),
+          borderRadius: BorderRadius.circular(999),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              const Padding(
+                padding: EdgeInsets.all(6),
+                child: Icon(Icons.notifications_none, color: Colors.black),
+              ),
+              if (count > 0)
+                Positioned(
+                  right: -2,
+                  top: -2,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    constraints: const BoxConstraints(minWidth: 18),
+                    child: Text(
+                      count > 99 ? '99+' : '$count',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
-              ],
-            ),
+                ),
+            ],
           ),
         );
       },
