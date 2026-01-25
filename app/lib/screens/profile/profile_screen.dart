@@ -43,9 +43,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (e) {
       // Handle errors here
     } finally {
-      setState(() => _isUploading = false);
+      if(mounted) {
+        setState(() => _isUploading = false);
+      }
     }
   }
+
+  void _confirmSignOut(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Xác nhận đăng xuất'),
+        content: const Text('Bạn có chắc chắn muốn đăng xuất không?'),
+        actions: [
+          TextButton(
+            child: const Text('Hủy'),
+            onPressed: () {
+              Navigator.of(ctx).pop();
+            },
+          ),
+          TextButton(
+            child: const Text('Đăng xuất', style: TextStyle(color: Colors.red)),
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+              if (!mounted) return;
+              // Pop the dialog
+              Navigator.of(ctx).pop(); 
+              // Pop until the root of the app to go to the sign-in screen
+              Navigator.of(context, rootNavigator: true)
+                  .pushNamedAndRemoveUntil('/', (route) => false);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -133,11 +166,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 width: 200,
                 height: 48,
                 child: ElevatedButton(
-                  onPressed: () async {
-                    await FirebaseAuth.instance.signOut();
-                    if (!mounted) return;
-                    Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
-                  },
+                  onPressed: () => _confirmSignOut(context),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     shape: RoundedRectangleBorder(

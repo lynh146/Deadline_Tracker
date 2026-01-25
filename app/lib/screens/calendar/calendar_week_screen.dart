@@ -69,8 +69,10 @@ class _CalendarWeekScreenState extends State<CalendarWeekScreen> {
   }
 
   void _navigateToCreateScreen() async {
-    final result = await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const TaskCreateScreen()),
+    final result = await Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute(
+        builder: (_) => TaskCreateScreen(initialDate: _selectedDay),
+      ),
     );
 
     if (result == true) {
