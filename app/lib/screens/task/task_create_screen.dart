@@ -4,11 +4,14 @@ import 'package:app/repositories/task_repository.dart';
 import 'package:app/services/task_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../notifications/notification_bell.dart';
 import '../notifications/notification_screen.dart';
 
 class TaskCreateScreen extends StatefulWidget {
-  const TaskCreateScreen({super.key});
+  final DateTime? initialDate;
+
+  const TaskCreateScreen({super.key, this.initialDate});
 
   @override
   State<TaskCreateScreen> createState() => _TaskCreateScreenState();
@@ -27,6 +30,16 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
   bool _remind1Day = false;
   bool _remind3Days = false;
   bool _remind5Days = false;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialDate != null) {
+      _startDate = DateTime(widget.initialDate!.year, widget.initialDate!.month, widget.initialDate!.day, 9, 0);
+      _endDate = DateTime(widget.initialDate!.year, widget.initialDate!.month, widget.initialDate!.day, 17, 0);
+    }
+  }
 
   @override
   void dispose() {
@@ -36,6 +49,8 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
   }
 
   Future<void> _saveTask() async {
+    if (_isSaving) return;
+
     FocusScope.of(context).unfocus();
 
     if (!_formKey.currentState!.validate()) return;
@@ -49,6 +64,10 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
       );
       return;
     }
+    
+    setState(() {
+      _isSaving = true;
+    });
 
     final remindAts = <DateTime>[];
     if (_remind1Day) remindAts.add(_endDate!.subtract(const Duration(days: 1)));
@@ -81,17 +100,45 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Lỗi khi tạo công việc: $e')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
     }
   }
 
   Future<void> _selectDateTime(BuildContext context, bool isStartDate) async {
-    final initialDate = isStartDate ? _startDate : _endDate;
+    final initialDate = isStartDate
+        ? _startDate
+        : _endDate ?? _startDate; // Suggest end date based on start date
+
+    final pickerTheme = Theme.of(context).copyWith(
+      colorScheme: const ColorScheme.light(
+        primary: AppColors.primary,
+        onPrimary: Colors.white,
+        onSurface: AppColors.textPrimary,
+      ),
+      dialogBackgroundColor: AppColors.background,
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: AppColors.primary,
+        ),
+      ),
+    );
 
     final DateTime? pickedDate = await showDatePicker(
       context: context,
       initialDate: initialDate ?? DateTime.now(),
-      firstDate: DateTime(2000),
+      firstDate: isStartDate ? DateTime(2000) : _startDate ?? DateTime.now(),
       lastDate: DateTime(2101),
+      builder: (context, child) {
+        return Theme(
+          data: pickerTheme,
+          child: child!,
+        );
+      },
     );
 
     if (pickedDate == null) return;
@@ -101,6 +148,25 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
     final TimeOfDay? pickedTime = await showTimePicker(
       context: context,
       initialTime: initialTime,
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: false),
+          child: Theme(
+            data: pickerTheme.copyWith(
+              timePickerTheme: TimePickerThemeData(
+                backgroundColor: AppColors.background,
+                hourMinuteColor: AppColors.primary.withOpacity(0.1),
+                hourMinuteTextColor: AppColors.textPrimary,
+                dialBackgroundColor: Colors.white,
+                dialHandColor: AppColors.primary,
+                dialTextColor: AppColors.textPrimary,
+                helpTextStyle: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            child: child!,
+          ),
+        );
+      },
     );
 
     if (pickedTime == null) return;
@@ -116,7 +182,19 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
 
       if (isStartDate) {
         _startDate = selectedDateTime;
+        if (_endDate != null && selectedDateTime.isAfter(_endDate!)) {
+          _endDate = null; 
+        }
       } else {
+        if (_startDate != null && selectedDateTime.isBefore(_startDate!)) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Ngày kết thúc không thể trước ngày bắt đầu.'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          return;
+        }
         _endDate = selectedDateTime;
       }
     });
@@ -169,140 +247,129 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
             ),
           ],
         ),
-
         body: SafeArea(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 20.0),
-            child: Column(
-              children: [
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 10),
-                          _buildTextFormField(
-                            label: 'Tên công việc',
-                            hint: 'Nhập tên công việc...',
-                            controller: _titleController,
-                          ),
-                          const SizedBox(height: 16),
-                          _buildTextFormField(
-                            label: 'Mô tả',
-                            hint: 'Mô tả chi tiết...',
-                            maxLines: 4,
-                            controller: _descriptionController,
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildDateTimePicker(
-                                  label: 'Ngày bắt đầu',
-                                  isStart: true,
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: _buildDateTimePicker(
-                                  label: 'Ngày kết thúc',
-                                  isStart: false,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-
-                          const Text(
-                            'Tiến độ ban đầu',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-
-                          Row(
-                            children: [
-                              Expanded(
-                                child: SliderTheme(
-                                  data: SliderTheme.of(context).copyWith(
-                                    activeTrackColor: progressColor,
-                                    thumbColor: progressColor,
-                                    overlayColor: progressColor.withOpacity(
-                                      0.15,
-                                    ),
-                                    inactiveTrackColor: AppColors.progressBg,
-                                  ),
-                                  child: Slider(
-                                    value: _progress,
-                                    min: 0,
-                                    max: 100,
-                                    divisions: 100,
-                                    label: '${_progress.round()}%',
-                                    onChanged: (double value) {
-                                      setState(() => _progress = value);
-                                    },
-                                  ),
-                                ),
-                              ),
-                              Text(
-                                '${_progress.round()}%',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-
-                          const Text(
-                            'Nhắc nhở',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          _buildReminderCheckbox(
-                            title: 'Trước 1 ngày',
-                            value: _remind1Day,
-                            onChanged: (val) =>
-                                setState(() => _remind1Day = val ?? false),
-                          ),
-                          _buildReminderCheckbox(
-                            title: 'Trước 3 ngày',
-                            value: _remind3Days,
-                            onChanged: (val) =>
-                                setState(() => _remind3Days = val ?? false),
-                          ),
-                          _buildReminderCheckbox(
-                            title: 'Trước 5 ngày',
-                            value: _remind5Days,
-                            onChanged: (val) =>
-                                setState(() => _remind5Days = val ?? false),
-                          ),
-                        ],
-                      ),
-                    ),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 10),
+                  _buildTextFormField(
+                    label: 'Tên công việc',
+                    hint: 'Nhập tên công việc...',
+                    controller: _titleController,
                   ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 10.0),
-                  child: Center(
-                    child: ElevatedButton(
-                      onPressed: _saveTask,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        minimumSize: const Size(double.infinity, 50),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
+                  const SizedBox(height: 16),
+                  _buildTextFormField(
+                    label: 'Mô tả',
+                    hint: 'Mô tả chi tiết...',
+                    maxLines: 4,
+                    controller: _descriptionController,
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildDateTimePicker(
+                          label: 'Ngày bắt đầu',
+                          isStart: true,
                         ),
                       ),
-                      child: const Text(
-                        'Lưu',
-                        style: TextStyle(fontSize: 16, color: Colors.white),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _buildDateTimePicker(
+                          label: 'Ngày kết thúc',
+                          isStart: false,
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 16),
+
+                  const Text(
+                    'Tiến độ ban đầu',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SliderTheme(
+                          data: SliderTheme.of(context).copyWith(
+                            activeTrackColor: progressColor,
+                            thumbColor: progressColor,
+                            overlayColor: progressColor.withOpacity(0.15),
+                            inactiveTrackColor: AppColors.progressBg,
+                          ),
+                          child: Slider(
+                            value: _progress,
+                            min: 0,
+                            max: 100,
+                            divisions: 100,
+                            label: '${_progress.round()}%',
+                            onChanged: (double value) {
+                              setState(() => _progress = value);
+                            },
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '${_progress.round()}%',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+
+                  const Text(
+                    'Nhắc nhở',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  _buildReminderCheckbox(
+                    title: 'Trước 1 ngày',
+                    value: _remind1Day,
+                    onChanged: (val) => setState(() => _remind1Day = val ?? false),
+                  ),
+                  _buildReminderCheckbox(
+                    title: 'Trước 3 ngày',
+                    value: _remind3Days,
+                    onChanged: (val) => setState(() => _remind3Days = val ?? false),
+                  ),
+                  _buildReminderCheckbox(
+                    title: 'Trước 5 ngày',
+                    value: _remind5Days,
+                    onChanged: (val) => setState(() => _remind5Days = val ?? false),
+                  ),
+                  const SizedBox(height: 80), // Add space for the button
+                ],
+              ),
             ),
           ),
         ),
+        persistentFooterButtons: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+            child: ElevatedButton(
+              onPressed: _isSaving ? null : _saveTask,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
+              ),
+              child: _isSaving
+                  ? const CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    )
+                  : const Text(
+                      'Lưu',
+                      style: TextStyle(fontSize: 16, color: Colors.white),
+                    ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -359,6 +426,7 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
 
   Widget _buildDateTimePicker({required String label, required bool isStart}) {
     final date = isStart ? _startDate : _endDate;
+    final isEnabled = isStart || _startDate != null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -366,33 +434,34 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
         Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         InkWell(
-          onTap: () => _selectDateTime(context, isStart),
+          onTap: isEnabled ? () => _selectDateTime(context, isStart) : null,
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: isEnabled ? Colors.white : Colors.grey.shade200,
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
-                  spreadRadius: 1,
-                  blurRadius: 5,
-                  offset: const Offset(0, 2),
-                ),
+                if (isEnabled)
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.1),
+                    spreadRadius: 1,
+                    blurRadius: 5,
+                    offset: const Offset(0, 2),
+                  ),
               ],
             ),
             child: Center(
               child: Text(
                 date != null
-                    ? '${date.day}/${date.month}/${date.year} '
-                    '${date.hour.toString().padLeft(2, '0')}:'
-                    '${date.minute.toString().padLeft(2, '0')}'
+                    ? DateFormat('dd/MM/yyyy h:mm a', 'vi_VN').format(date)
                     : 'Chọn ngày & giờ',
                 style: TextStyle(
                   fontWeight: FontWeight.w500,
                   fontSize: 15,
-                  color: date != null ? Colors.black87 : Colors.grey.shade600,
+                  color: isEnabled
+                      ? (date != null ? Colors.black87 : Colors.grey.shade600)
+                      : Colors.grey.shade500,
                 ),
               ),
             ),
