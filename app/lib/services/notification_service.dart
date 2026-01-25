@@ -135,6 +135,7 @@ class NotificationService {
         .collection('users')
         .doc(userId)
         .collection('notifications');
+    final visibleAt = scheduledFor ?? createdAt;
 
     await ref.add({
       'title': title,
@@ -144,6 +145,7 @@ class NotificationService {
       'scheduledFor': scheduledFor == null
           ? null
           : Timestamp.fromDate(scheduledFor),
+      'visibleAt': Timestamp.fromDate(visibleAt),
       'taskDocId': taskDocId,
       'isRead': false,
     });

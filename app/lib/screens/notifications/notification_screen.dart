@@ -17,17 +17,51 @@ class NotificationScreen extends StatelessWidget {
       .doc(userId)
       .collection('notifications');
 
-  Future<void> _markAllRead() async {
-    final q = await _col.where('isRead', isEqualTo: false).get();
-    final batch = FirebaseFirestore.instance.batch();
-    for (final d in q.docs) {
-      batch.update(d.reference, {'isRead': true});
+  Future<void> _markAllRead(BuildContext context) async {
+    try {
+      final now = Timestamp.now();
+
+      final qSnap = await _col
+          .where('visibleAt', isLessThanOrEqualTo: now)
+          .orderBy('visibleAt', descending: true)
+          .get();
+
+      final batch = FirebaseFirestore.instance.batch();
+      int updated = 0;
+
+      for (final d in qSnap.docs) {
+        final data = d.data();
+
+        final bool isRead = data['isRead'] == true;
+        if (!isRead) {
+          batch.update(d.reference, {'isRead': true});
+          updated++;
+        }
+      }
+
+      if (updated == 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Không có thông báo chưa đọc.')),
+        );
+        return;
+      }
+
+      await batch.commit();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Đã đọc hết ($updated) thông báo.')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Lỗi Đọc hết: $e')));
     }
-    await batch.commit();
   }
 
   @override
   Widget build(BuildContext context) {
+    final now = Timestamp.now();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -36,7 +70,7 @@ class NotificationScreen extends StatelessWidget {
         ),
         actions: [
           TextButton(
-            onPressed: _markAllRead,
+            onPressed: () => _markAllRead(context),
             child: const Text(
               'Đọc hết',
               style: TextStyle(fontWeight: FontWeight.bold),
@@ -45,7 +79,10 @@ class NotificationScreen extends StatelessWidget {
         ],
       ),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: _col.orderBy('createdAt', descending: true).snapshots(),
+        stream: _col
+            .where('visibleAt', isLessThanOrEqualTo: now)
+            .orderBy('visibleAt', descending: true)
+            .snapshots(),
         builder: (context, snap) {
           if (snap.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -88,15 +125,14 @@ class NotificationScreen extends StatelessWidget {
                     ? null
                     : const Icon(Icons.circle, size: 8, color: Colors.red),
 
-                // ĐIỀU HƯỚNG KHI NHẤN VÀO THÔNG BÁO
                 onTap: () async {
                   // mark read
-                  await d.reference.update({'isRead': true});
+                  await d.reference.set({
+                    'isRead': true,
+                  }, SetOptions(merge: true));
 
-                  // không có task thì thôi
                   if (taskDocId == null) return;
 
-                  // LẤY TASK TỪ LIST
                   final repo = TaskRepository();
                   final tasks = await repo.getTasksByUser(userId);
 
@@ -107,17 +143,14 @@ class NotificationScreen extends StatelessWidget {
                       break;
                     }
                   }
-
                   if (found == null) return;
                   if (!context.mounted) return;
-
-                  final Task task = found;
 
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (_) => TaskDetailScreen(
-                        task: task,
+                        task: found!,
                         docId: taskDocId,
                         userId: userId,
                         taskService: TaskService(repo),

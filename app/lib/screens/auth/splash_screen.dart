@@ -96,7 +96,10 @@ class _SplashUI extends StatelessWidget {
                     borderRadius: BorderRadius.circular(22),
                   ),
                 ),
-                child: const Text('Đăng nhập'),
+                child: const Text(
+                  'Đăng nhập',
+                  style: TextStyle(color: Colors.white),
+                ),
               ),
             ),
 

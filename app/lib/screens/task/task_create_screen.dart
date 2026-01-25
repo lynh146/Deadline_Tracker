@@ -4,7 +4,6 @@ import 'package:app/repositories/task_repository.dart';
 import 'package:app/services/task_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:intl/intl.dart';
 import '../notifications/notification_bell.dart';
 import '../notifications/notification_screen.dart';
@@ -37,20 +36,8 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
   void initState() {
     super.initState();
     if (widget.initialDate != null) {
-      _startDate = DateTime(
-        widget.initialDate!.year,
-        widget.initialDate!.month,
-        widget.initialDate!.day,
-        9,
-        0,
-      );
-      _endDate = DateTime(
-        widget.initialDate!.year,
-        widget.initialDate!.month,
-        widget.initialDate!.day,
-        17,
-        0,
-      );
+      _startDate = DateTime(widget.initialDate!.year, widget.initialDate!.month, widget.initialDate!.day, 9, 0);
+      _endDate = DateTime(widget.initialDate!.year, widget.initialDate!.month, widget.initialDate!.day, 17, 0);
     }
   }
 
@@ -59,74 +46,6 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
     _titleController.dispose();
     _descriptionController.dispose();
     super.dispose();
-  }
-
-  Future<TimeOfDay?> _showCupertinoTimePicker(
-      BuildContext context,
-      TimeOfDay initial,
-      ) async {
-    TimeOfDay tempPicked = initial;
-
-    return showModalBottomSheet<TimeOfDay>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (_) {
-        return Container(
-          height: 320,
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-          ),
-          child: Column(
-            children: [
-              // Header
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Hủy'),
-                    ),
-                    const Text(
-                      'Chọn giờ',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, tempPicked),
-                      child: const Text('OK'),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1),
-
-              // Spinner
-              Expanded(
-                child: CupertinoDatePicker(
-                  mode: CupertinoDatePickerMode.time,
-                  use24hFormat: false, // true nếu bạn muốn 24h
-                  initialDateTime: DateTime(
-                    2000,
-                    1,
-                    1,
-                    initial.hour,
-                    initial.minute,
-                  ),
-                  onDateTimeChanged: (dt) {
-                    tempPicked = TimeOfDay(hour: dt.hour, minute: dt.minute);
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
   }
 
   Future<void> _saveTask() async {
@@ -145,7 +64,7 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
       );
       return;
     }
-
+    
     setState(() {
       _isSaving = true;
     });
@@ -203,7 +122,9 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
       ),
       dialogBackgroundColor: AppColors.background,
       textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+        style: TextButton.styleFrom(
+          foregroundColor: AppColors.primary,
+        ),
       ),
     );
 
@@ -213,7 +134,10 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
       firstDate: isStartDate ? DateTime(2000) : _startDate ?? DateTime.now(),
       lastDate: DateTime(2101),
       builder: (context, child) {
-        return Theme(data: pickerTheme, child: child!);
+        return Theme(
+          data: pickerTheme,
+          child: child!,
+        );
       },
     );
 
@@ -221,12 +145,29 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
     if (!mounted) return;
 
     final initialTime = TimeOfDay.fromDateTime(initialDate ?? DateTime.now());
-    final TimeOfDay? pickedTime = await _showCupertinoTimePicker(
-      context,
-      initialTime,
+    final TimeOfDay? pickedTime = await showTimePicker(
+      context: context,
+      initialTime: initialTime,
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: false),
+          child: Theme(
+            data: pickerTheme.copyWith(
+              timePickerTheme: TimePickerThemeData(
+                backgroundColor: AppColors.background,
+                hourMinuteColor: AppColors.primary.withOpacity(0.1),
+                hourMinuteTextColor: AppColors.textPrimary,
+                dialBackgroundColor: Colors.white,
+                dialHandColor: AppColors.primary,
+                dialTextColor: AppColors.textPrimary,
+                helpTextStyle: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            child: child!,
+          ),
+        );
+      },
     );
-
-    if (pickedTime == null) return;
 
     if (pickedTime == null) return;
 
@@ -242,7 +183,7 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
       if (isStartDate) {
         _startDate = selectedDateTime;
         if (_endDate != null && selectedDateTime.isAfter(_endDate!)) {
-          _endDate = null;
+          _endDate = null; 
         }
       } else {
         if (_startDate != null && selectedDateTime.isBefore(_startDate!)) {
@@ -326,7 +267,6 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
                     hint: 'Mô tả chi tiết...',
                     maxLines: 4,
                     controller: _descriptionController,
-                    requiredField: false,
                   ),
                   const SizedBox(height: 16),
                   Row(
@@ -389,20 +329,17 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
                   _buildReminderCheckbox(
                     title: 'Trước 1 ngày',
                     value: _remind1Day,
-                    onChanged: (val) =>
-                        setState(() => _remind1Day = val ?? false),
+                    onChanged: (val) => setState(() => _remind1Day = val ?? false),
                   ),
                   _buildReminderCheckbox(
                     title: 'Trước 3 ngày',
                     value: _remind3Days,
-                    onChanged: (val) =>
-                        setState(() => _remind3Days = val ?? false),
+                    onChanged: (val) => setState(() => _remind3Days = val ?? false),
                   ),
                   _buildReminderCheckbox(
                     title: 'Trước 5 ngày',
                     value: _remind5Days,
-                    onChanged: (val) =>
-                        setState(() => _remind5Days = val ?? false),
+                    onChanged: (val) => setState(() => _remind5Days = val ?? false),
                   ),
                   const SizedBox(height: 80), // Add space for the button
                 ],
@@ -412,10 +349,7 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
         ),
         persistentFooterButtons: [
           Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 20.0,
-              vertical: 10.0,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
             child: ElevatedButton(
               onPressed: _isSaving ? null : _saveTask,
               style: ElevatedButton.styleFrom(
@@ -427,12 +361,12 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
               ),
               child: _isSaving
                   ? const CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-              )
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    )
                   : const Text(
-                'Lưu',
-                style: TextStyle(fontSize: 16, color: Colors.white),
-              ),
+                      'Lưu',
+                      style: TextStyle(fontSize: 16, color: Colors.white),
+                    ),
             ),
           ),
         ],
@@ -460,7 +394,6 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
     required String hint,
     int maxLines = 1,
     required TextEditingController controller,
-    bool requiredField = true,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -481,7 +414,6 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
             errorStyle: const TextStyle(color: Colors.redAccent),
           ),
           validator: (value) {
-            if (!requiredField) return null;
             if (value == null || value.isEmpty) {
               return 'Vui lòng nhập $label';
             }

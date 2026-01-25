@@ -14,6 +14,34 @@ class TaskRepository {
     return snapshot.docs.map(_fromDoc).toList();
   }
 
+  Stream<List<Task>> watchTasksByUser(String userId) {
+    return _db
+        .collection('tasks')
+        .where('userId', isEqualTo: userId)
+        .orderBy('updatedAt', descending: true)
+        .snapshots()
+        .map((snap) => snap.docs.map(_fromDoc).toList());
+  }
+
+  //Lấy 1 task theo docId (để so sánh trước/sau khi update)
+  Future<Task?> getTaskById({required String docId}) async {
+    final doc = await _db.collection('tasks').doc(docId).get();
+    if (!doc.exists) return null;
+
+    final data = doc.data() as Map<String, dynamic>;
+    return Task(
+      id: doc.id,
+      title: data['title'] ?? '',
+      description: data['description'] ?? '',
+      startAt: (data['startAt'] as Timestamp).toDate(),
+      dueAt: (data['dueAt'] as Timestamp).toDate(),
+      remindAt: (data['remindAt'] as List<dynamic>? ?? [])
+          .map((e) => (e as Timestamp).toDate())
+          .toList(),
+      progress: data['progress'] ?? 0,
+    );
+  }
+
   // Map Firestore Document → Task
   Task _fromDoc(QueryDocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
