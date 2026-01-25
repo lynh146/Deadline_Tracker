@@ -35,7 +35,7 @@ class TaskDetailScreen extends StatelessWidget {
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: const BackButton(color: AppColors.textPrimary),
+        leading: const BackButton(color: Colors.black), // Mũi tên back màu đen
       ),
 
       // 2. SỬA BODY: Thay Center bằng SingleChildScrollView để nội dung nằm cao lên

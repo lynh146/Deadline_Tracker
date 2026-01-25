@@ -67,7 +67,7 @@ class _TaskUpdateScreenState extends State<TaskUpdateScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
 
-        leading: const BackButton(color: AppColors.textPrimary),
+        leading: const BackButton(color: Colors.black),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
