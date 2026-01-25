@@ -12,20 +12,33 @@ class NotificationBell extends StatelessWidget {
   });
 
   Stream<int> _watchUnreadCount() {
-    return FirebaseFirestore.instance
+    final col = FirebaseFirestore.instance
         .collection('users')
         .doc(userId)
-        .collection('notifications')
-        .where('visibleAt', isLessThanOrEqualTo: Timestamp.now())
-        .snapshots()
-        .map((snap) {
-          int unread = 0;
-          for (final d in snap.docs) {
-            final data = d.data();
-            if (data['isRead'] != true) unread++;
-          }
-          return unread;
-        });
+        .collection('notifications');
+
+    //ấy tất cả notifications realtime rồi tự đếm unread ở client
+    return col.orderBy('createdAt', descending: true).snapshots().map((snap) {
+      final now = Timestamp.now();
+
+      int count = 0;
+      for (final d in snap.docs) {
+        final data = d.data();
+
+        final Timestamp? visibleAt = data['visibleAt'] is Timestamp
+            ? data['visibleAt'] as Timestamp
+            : null;
+
+        final bool isVisible =
+            visibleAt == null || visibleAt.compareTo(now) <= 0;
+
+        final bool isRead = data['isRead'] == true;
+
+        if (isVisible && !isRead) count++;
+      }
+
+      return count;
+    });
   }
 
   @override
@@ -33,7 +46,7 @@ class NotificationBell extends StatelessWidget {
     return StreamBuilder<int>(
       stream: _watchUnreadCount(),
       builder: (context, snap) {
-        final count = snap.hasError ? 0 : (snap.data ?? 0);
+        final count = snap.data ?? 0;
 
         return InkWell(
           onTap: onTap,
