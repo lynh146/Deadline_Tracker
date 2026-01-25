@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../services/auth_service.dart';
 import 'signup_screen.dart';
+import 'forgot_password_screen.dart';
 
 class SignInScreen extends StatefulWidget {
   final bool showVerifyMessage;
@@ -20,14 +21,17 @@ class _SignInScreenState extends State<SignInScreen> {
   bool _loading = false;
   bool _showPassword = false;
 
-  //LOGIN EMAIL
+  bool _isValidEmail(String email) {
+    final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
+    return emailRegex.hasMatch(email);
+  }
+
+  // LOGIN EMAIL
   Future<void> _login() async {
     final email = _email.text.trim();
     final pass = _pass.text.trim();
 
-    // ✅ check email format trước
-    final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
-    if (!emailRegex.hasMatch(email)) {
+    if (!_isValidEmail(email)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Email không đúng định dạng')),
       );
@@ -58,35 +62,19 @@ class _SignInScreenState extends State<SignInScreen> {
 
   //QUÊN MẬT KHẨU
   void _forgotPassword() {
-    final emailCtrl = TextEditingController(text: _email.text);
-
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Quên mật khẩu'),
-        content: TextField(
-          controller: emailCtrl,
-          decoration: const InputDecoration(hintText: 'Nhập email đã đăng ký'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Hủy'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              await _auth.sendPasswordResetEmail(emailCtrl.text.trim());
-              if (!mounted) return;
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Đã gửi email đặt lại mật khẩu')),
-              );
-            },
-            child: const Text('Gửi'),
-          ),
-        ],
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ForgotPasswordScreen(prefillEmail: _email.text.trim()),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _email.dispose();
+    _pass.dispose();
+    super.dispose();
   }
 
   @override
@@ -95,7 +83,7 @@ class _SignInScreenState extends State<SignInScreen> {
       backgroundColor: AppColors.surface,
       body: Column(
         children: [
-          //HEADER
+          // HEADER
           Container(
             height: 220,
             width: double.infinity,
@@ -196,11 +184,10 @@ class _SignInScreenState extends State<SignInScreen> {
 
                   const SizedBox(height: 24),
 
-                  //SOCIAL LOGIN
+                  // SOCIAL LOGIN
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // FACEBOOK
                       _socialIcon(Icons.facebook, AppColors.facebook, () async {
                         await _auth.signInWithFacebook();
                         if (!mounted) return;
@@ -208,7 +195,6 @@ class _SignInScreenState extends State<SignInScreen> {
                       }),
                       const SizedBox(width: 16),
 
-                      // GOOGLE
                       _socialGoogle(() async {
                         await _auth.signInWithGoogle();
                         if (!mounted) return;
@@ -240,8 +226,7 @@ class _SignInScreenState extends State<SignInScreen> {
     );
   }
 
-  //HELPERS
-
+  // HELPERS
   Widget _input(TextEditingController c, String hint) {
     return TextField(controller: c, decoration: _decoration(hint));
   }
