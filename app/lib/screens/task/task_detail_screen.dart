@@ -5,9 +5,9 @@ import '../../models/deadline_task.dart';
 import '../../services/task_service.dart';
 import 'task_update_screen.dart';
 
-class TaskDetailScreen extends StatelessWidget {
+class TaskDetailScreen extends StatefulWidget {
   final Task task;
-  final String docId; // Cần ID string để gọi API update/delete
+  final String docId; // ID string để gọi update/delete
   final TaskService taskService;
   final String userId;
 
@@ -20,38 +20,39 @@ class TaskDetailScreen extends StatelessWidget {
   }) : super(key: key);
 
   @override
+  State<TaskDetailScreen> createState() => _TaskDetailScreenState();
+}
+
+class _TaskDetailScreenState extends State<TaskDetailScreen> {
+  bool _isDeleting = false;
+
+  @override
   Widget build(BuildContext context) {
+    final task = widget.task;
+
     return Scaffold(
-      backgroundColor: AppColors.background, // Màu nền #E1D0FF
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text(
           "Chi tiết",
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            // 1. SỬA MÀU CHỮ THÀNH ĐEN TẠI ĐÂY
-            color: Colors.black,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
         ),
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: const BackButton(color: Colors.black), // Mũi tên back màu đen
+        leading: const BackButton(color: Colors.black),
       ),
-
-      // 2. SỬA BODY: Thay Center bằng SingleChildScrollView để nội dung nằm cao lên
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-
         child: Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             color: AppColors.white,
             borderRadius: BorderRadius.circular(30),
-            boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
+            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10)],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-
             children: [
               Text(
                 task.title,
@@ -75,7 +76,7 @@ class TaskDetailScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.detailCard, // #EDE3FF
+                  color: AppColors.detailCard,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Column(
@@ -140,12 +141,12 @@ class TaskDetailScreen extends StatelessWidget {
                     MaterialPageRoute(
                       builder: (_) => TaskUpdateScreen(
                         task: task,
-                        docId: docId,
-                        taskService: taskService,
-                        userId: userId,
+                        docId: widget.docId,
+                        taskService: widget.taskService,
+                        userId: widget.userId,
                       ),
                     ),
-                  ).then((_) => Navigator.pop(context));
+                  ).then((_) => Navigator.pop(context, true)); // ✅ refresh list
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.update,
@@ -160,8 +161,9 @@ class TaskDetailScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
+
               TextButton(
-                onPressed: () => _confirmDelete(context),
+                onPressed: _isDeleting ? null : () => _confirmDelete(context),
                 style: TextButton.styleFrom(
                   backgroundColor: AppColors.danger,
                   minimumSize: const Size(double.infinity, 50),
@@ -169,10 +171,19 @@ class TaskDetailScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(25),
                   ),
                 ),
-                child: const Text(
-                  "Xóa",
-                  style: TextStyle(color: Colors.white, fontSize: 16),
-                ),
+                child: _isDeleting
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        "Xóa",
+                        style: TextStyle(color: Colors.white, fontSize: 16),
+                      ),
               ),
             ],
           ),
@@ -202,28 +213,58 @@ class TaskDetailScreen extends StatelessWidget {
   }
 
   void _confirmDelete(BuildContext context) {
+    final task = widget.task;
+
     showDialog(
       context: context,
+      barrierDismissible: !_isDeleting,
       builder: (ctx) => AlertDialog(
         title: const Text("Xác nhận xóa"),
         content: Text("Bạn có chắc muốn xóa '${task.title}' không?"),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx),
+            onPressed: _isDeleting ? null : () => Navigator.pop(ctx),
             child: const Text("Hủy"),
           ),
           TextButton(
-            onPressed: () async {
-              await taskService.deleteTask(
-                userId: userId,
-                docId: docId,
-                task: task,
-              );
-              if (context.mounted) {
-                Navigator.pop(ctx);
-                Navigator.pop(context);
-              }
-            },
+            onPressed: _isDeleting
+                ? null
+                : () async {
+                    setState(() => _isDeleting = true);
+
+                    try {
+                      await widget.taskService.deleteTask(
+                        userId: widget.userId,
+                        docId: widget.docId,
+                        task: widget.task,
+                      );
+
+                      if (!mounted) return;
+
+                      Navigator.pop(ctx); // đóng dialog
+                      Navigator.pop(context, true); // ✅ về màn trước + refresh
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Đã xóa công việc thành công!"),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    } catch (e) {
+                      if (!mounted) return;
+
+                      Navigator.pop(ctx); // đóng dialog
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text("Xóa thất bại: $e"),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+
+                      setState(() => _isDeleting = false);
+                    }
+                  },
             child: const Text("Xóa", style: TextStyle(color: Colors.red)),
           ),
         ],
