@@ -9,187 +9,134 @@ class TaskService {
   final TaskRepository _repo;
   final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
 
-  // ===== HELPER =====
+  // lấy tất cả task của user dưới dạng stream
+  Stream<List<Task>> watchAllTasks(String userId) {
+    return _repo.watchTasksByUser(userId);
+  }
+
   DateTime _startOfDay(DateTime d) => DateTime(d.year, d.month, d.day);
   DateTime _endOfDay(DateTime d) => _startOfDay(d).add(const Duration(days: 1));
 
-  DateTime _startOfWeek(DateTime today) {
-    return _startOfDay(
-      today,
-    ).subtract(Duration(days: today.weekday - DateTime.monday));
+  DateTime _startOfWeek(DateTime d) =>
+      _startOfDay(d).subtract(Duration(days: d.weekday - DateTime.monday));
+
+  DateTime _endOfWeek(DateTime d) =>
+      _startOfWeek(d).add(const Duration(days: 7));
+
+  bool _inRange(DateTime x, DateTime s, DateTime e) =>
+      !x.isBefore(s) && x.isBefore(e);
+  // lọc các task trong ngày
+  Stream<List<Task>> watchTodayTasks(String userId) {
+    return watchAllTasks(userId).map((all) {
+      final now = DateTime.now();
+      final start = _startOfDay(now);
+      final end = _endOfDay(now);
+
+      final list =
+          all
+              .where((t) => _inRange(t.dueAt, start, end) && !t.isCompleted)
+              .toList()
+            ..sort((a, b) => a.dueAt.compareTo(b.dueAt));
+
+      return list;
+    });
   }
 
-  DateTime _endOfWeek(DateTime today) =>
-      _startOfWeek(today).add(const Duration(days: 7));
-
-  bool _inRange(DateTime x, DateTime start, DateTime endExclusive) {
-    return !x.isBefore(start) && x.isBefore(endExclusive);
+  // đếm số task trong tuần
+  Stream<int> watchWeeklyTasksCount(String userId) {
+    return watchAllTasks(userId).map((all) {
+      final now = DateTime.now();
+      return all
+          .where(
+            (t) =>
+                !t.isCompleted &&
+                _inRange(t.dueAt, _startOfWeek(now), _endOfWeek(now)),
+          )
+          .length;
+    });
   }
 
-  // Notification id ổn định theo docId
-  // salt:
-  // 0: deadline
-  // 1..n: reminders
-  // 100: startAt
-  // 200: overdue
-  int _notifId(String docId, int salt) {
-    return (docId.hashCode & 0x7fffffff) + salt;
+  // lọc theo trạng thái
+  List<Task> filterByStatus(List<Task> all, TaskStatus status) {
+    final list = all.where((t) => t.status == status).toList();
+    list.sort((a, b) => a.dueAt.compareTo(b.dueAt));
+    return list;
   }
 
-  // HOME
-  //Task tới hạn HÔM NAY
-  Future<List<Task>> getTodayTasks(String userId) async {
-    final all = await _repo.getTasksByUser(userId);
-
+  // lấy các task chưa làm
+  List<Task> filterNotStarted(List<Task> all) {
     final now = DateTime.now();
-    final startToday = _startOfDay(now);
-    final endToday = _endOfDay(now);
-
-    return all
-        .where((t) => _inRange(t.dueAt, startToday, endToday) && !t.isCompleted)
-        .toList()
-      ..sort((a, b) => a.dueAt.compareTo(b.dueAt));
+    final list =
+        all
+            .where(
+              (t) => !t.isCompleted && t.progress == 0 && t.dueAt.isAfter(now),
+            )
+            .toList()
+          ..sort((a, b) => a.dueAt.compareTo(b.dueAt));
+    return list;
   }
-  // Tổng task trong TUẦN (Home – ô thống kê)
 
-  Future<int> getWeeklyTasks(String userId) async {
-    final all = await _repo.getTasksByUser(userId);
+  // lấy các task đang làm và sắp đến hạn
+  List<Task> filterInProgressSorted(List<Task> all) {
+    final list = all.where((t) => t.isInProgress).toList()
+      ..sort((a, b) {
+        final c = a.dueAt.compareTo(b.dueAt);
+        if (c != 0) return c;
+        return a.progress.compareTo(b.progress);
+      });
+    return list;
+  }
 
+  // lấy các task sắp đến hạn trong vài ngày tới
+  List<Task> filterDueSoon(List<Task> all, {required int days}) {
     final now = DateTime.now();
-    final startWeek = _startOfWeek(now);
-    final endWeek = _endOfWeek(now);
-
-    return all
-        .where((t) => !t.isCompleted && _inRange(t.dueAt, startWeek, endWeek))
-        .length;
-  }
-
-  // CALENDAR
-  // Task theo NGÀY (Calendar Week)
-
-  Future<List<Task>> getTasksByDate(String userId, DateTime day) async {
-    final all = await _repo.getTasksByUser(userId);
-    final start = _startOfDay(day);
+    final day = _startOfDay(now).add(Duration(days: days));
+    final start = day;
     final end = _endOfDay(day);
 
-    return all.where((t) => _inRange(t.dueAt, start, end)).toList()
-      ..sort((a, b) => a.dueAt.compareTo(b.dueAt));
-  }
-
-  // STATUS
-  // Lấy danh sách task theo TRẠNG THÁI
-  // Dùng cho 4 ô: completed / inProgress / upcoming / overdue
-  Future<List<Task>> getTasksByStatus(String userId, TaskStatus status) async {
-    final all = await _repo.getTasksByUser(userId);
-    return all.where((t) => t.status == status).toList();
-  }
-
-  //QUÁ HẠN
-  Future<List<Task>> getOverdueLatest(String userId, {int limit = 2}) async {
-    final all = await _repo.getTasksByUser(userId);
-
-    final overdue = all.where((t) => t.isOverdue).toList()
-      ..sort((a, b) => b.dueAt.compareTo(a.dueAt));
-
-    return overdue.take(limit).toList();
-  }
-  // ĐANG TIẾN HÀNH
-  // Sắp xếp theo dueAt (càng gần càng lên trên), cùng dueAt thì progress thấp lên trên
-
-  Future<List<Task>> getInProgressSorted(String userId) async {
-    final all = await _repo.getTasksByUser(userId);
-
-    final inProgress = all.where((t) => t.isInProgress).toList();
-    inProgress.sort((a, b) {
-      final c = a.dueAt.compareTo(b.dueAt);
-      if (c != 0) return c;
-      return a.progress.compareTo(b.progress);
-    });
-
-    return inProgress;
-  }
-
-  // CHƯA LÀM
-  Future<List<Task>> getNotStartedTasks(String userId) async {
-    final all = await _repo.getTasksByUser(userId);
-    final now = DateTime.now();
-
-    final list = all.where((t) {
-      final notDone = !t.isCompleted;
-      final notOverdue = t.dueAt.isAfter(now);
-      return notDone && notOverdue && t.progress == 0;
-    }).toList();
-
-    list.sort((a, b) {
-      final c = a.dueAt.compareTo(b.dueAt);
-      if (c != 0) return c;
-      return a.progress.compareTo(b.progress);
-    });
-
+    final list =
+        all
+            .where(
+              (t) =>
+                  !t.isCompleted &&
+                  !t.isOverdue &&
+                  _inRange(t.dueAt, start, end),
+            )
+            .toList()
+          ..sort((a, b) => a.dueAt.compareTo(b.dueAt));
     return list;
   }
 
-  //SẮP HẾT HẠN = ĐÚNG NGÀY (1/3/5)
-  Future<List<Task>> getDueSoonTasks(String userId, {required int days}) async {
-    final all = await _repo.getTasksByUser(userId);
-
-    if (days != 1 && days != 3 && days != 5) {
-      throw Exception('days must be 1, 3, or 5');
-    }
-
-    final now = DateTime.now();
-    final targetDay = _startOfDay(now).add(Duration(days: days));
-    final start = targetDay;
-    final end = _endOfDay(targetDay);
-
-    final list = all.where((t) {
-      if (t.isCompleted) return false;
-      if (t.isOverdue) return false;
-      return _inRange(t.dueAt, start, end);
-    }).toList();
-
-    list.sort((a, b) {
-      final c = a.dueAt.compareTo(b.dueAt);
-      if (c != 0) return c;
-      return a.progress.compareTo(b.progress);
-    });
-
-    return list;
-  }
-
-  Future<List<Task>> getDueSoonLatest(String userId, {int limit = 2}) async {
-    final one = await getDueSoonTasks(userId, days: 1);
-    final three = await getDueSoonTasks(userId, days: 3);
-    final five = await getDueSoonTasks(userId, days: 5);
-
-    final merged = <Task>[...one, ...three, ...five];
+  // lấy vài task sắp đến hạn nhất
+  List<Task> filterDueSoonLatest(List<Task> all, {int limit = 2}) {
+    final merged = [
+      ...filterDueSoon(all, days: 1),
+      ...filterDueSoon(all, days: 3),
+      ...filterDueSoon(all, days: 5),
+    ];
 
     final seen = <String>{};
     final distinct = <Task>[];
     for (final t in merged) {
-      final key = t.id ?? '${t.title}-${t.dueAt.toIso8601String()}';
-      if (seen.add(key)) distinct.add(t);
+      if (seen.add(t.id ?? '${t.title}-${t.dueAt}')) distinct.add(t);
     }
 
-    distinct.sort((a, b) {
-      final c = a.dueAt.compareTo(b.dueAt);
-      if (c != 0) return c;
-      return a.progress.compareTo(b.progress);
-    });
-
+    distinct.sort((a, b) => a.dueAt.compareTo(b.dueAt));
     return distinct.take(limit).toList();
   }
 
-  // NOTIFICATION HELPERS FOR TASKS
+  // notification
+
+  int _notifId(String docId, int salt) => (docId.hashCode & 0x7fffffff) + salt;
+  // bắt đầu
   Future<void> _scheduleStart({
     required String userId,
     required String docId,
     required Task task,
   }) async {
-    // Nhắc vào đúng startAt
     if (task.startAt.isAfter(DateTime.now())) {
-      final title = 'Bắt đầu công việc';
-      final body = 'Hôm nay bắt đầu: ${task.title}';
+      final title = 'Hôm nay bắt đầu ${task.title}';
+      final body = task.title;
 
       await NotificationService.instance.schedule(
         id: _notifId(docId, 100),
@@ -198,7 +145,7 @@ class TaskService {
         time: task.startAt,
         channelId: NotificationService.chStart,
         channelName: 'Start',
-        channelDesc: 'Start task reminders',
+        channelDesc: 'Start task',
       );
 
       await NotificationService.instance.saveToFirestore(
@@ -213,60 +160,7 @@ class TaskService {
     }
   }
 
-  Future<void> _scheduleDeadline({
-    required String userId,
-    required String docId,
-    required Task task,
-  }) async {
-    final title = 'Deadline tới hạn';
-    final body = task.title;
-
-    await NotificationService.instance.schedule(
-      id: _notifId(docId, 0),
-      title: title,
-      body: body,
-      time: task.dueAt,
-      channelId: NotificationService.chDeadline,
-      channelName: 'Deadline',
-      channelDesc: 'Deadline notifications',
-    );
-
-    await NotificationService.instance.saveToFirestore(
-      userId: userId,
-      title: title,
-      body: body,
-      type: 'deadline',
-      createdAt: DateTime.now(),
-      scheduledFor: task.dueAt,
-      taskDocId: docId,
-    );
-
-    // Overdue notification (1 minute after dueAt)
-    final overdueTime = task.dueAt.add(const Duration(minutes: 1));
-    final oTitle = 'Công việc đã hết hạn';
-    final oBody = task.title;
-
-    await NotificationService.instance.schedule(
-      id: _notifId(docId, 200),
-      title: oTitle,
-      body: oBody,
-      time: overdueTime,
-      channelId: NotificationService.chOverdue,
-      channelName: 'Overdue',
-      channelDesc: 'Overdue notifications',
-    );
-
-    await NotificationService.instance.saveToFirestore(
-      userId: userId,
-      title: oTitle,
-      body: oBody,
-      type: 'overdue',
-      createdAt: DateTime.now(),
-      scheduledFor: overdueTime,
-      taskDocId: docId,
-    );
-  }
-
+  // nhắc nhở
   Future<void> _scheduleReminders({
     required String userId,
     required String docId,
@@ -274,12 +168,10 @@ class TaskService {
   }) async {
     for (int i = 0; i < task.remindAt.length; i++) {
       final t = task.remindAt[i];
+      if (t.isBefore(DateTime.now()) || !t.isBefore(task.dueAt)) continue;
 
-      // nhắc phải nằm trước dueAt và sau hiện tại
-      if (t.isBefore(DateTime.now())) continue;
-      if (!t.isBefore(task.dueAt)) continue;
-
-      final title = 'Nhắc việc';
+      final daysLeft = task.dueAt.difference(t).inDays;
+      final title = 'Còn $daysLeft ngày đến hạn ${task.title}';
       final body = task.title;
 
       await NotificationService.instance.schedule(
@@ -289,7 +181,7 @@ class TaskService {
         time: t,
         channelId: NotificationService.chReminder,
         channelName: 'Reminder',
-        channelDesc: 'Reminder notifications',
+        channelDesc: 'Reminder',
       );
 
       await NotificationService.instance.saveToFirestore(
@@ -304,8 +196,61 @@ class TaskService {
     }
   }
 
+  // deadline và overdue
+  Future<void> _scheduleDeadline({
+    required String userId,
+    required String docId,
+    required Task task,
+  }) async {
+    final dueTitle = 'Đến hạn ${task.title}';
+    final body = task.title;
+
+    await NotificationService.instance.schedule(
+      id: _notifId(docId, 0),
+      title: dueTitle,
+      body: body,
+      time: task.dueAt,
+      channelId: NotificationService.chDeadline,
+      channelName: 'Deadline',
+      channelDesc: 'Deadline',
+    );
+
+    await NotificationService.instance.saveToFirestore(
+      userId: userId,
+      title: dueTitle,
+      body: body,
+      type: 'deadline',
+      createdAt: DateTime.now(),
+      scheduledFor: task.dueAt,
+      taskDocId: docId,
+    );
+
+    final overdueTime = task.dueAt.add(const Duration(minutes: 1));
+    final overdueTitle = '${task.title} đã hết hạn';
+
+    await NotificationService.instance.schedule(
+      id: _notifId(docId, 200),
+      title: overdueTitle,
+      body: body,
+      time: overdueTime,
+      channelId: NotificationService.chOverdue,
+      channelName: 'Overdue',
+      channelDesc: 'Overdue',
+    );
+
+    await NotificationService.instance.saveToFirestore(
+      userId: userId,
+      title: overdueTitle,
+      body: body,
+      type: 'overdue',
+      createdAt: DateTime.now(),
+      scheduledFor: overdueTime,
+      taskDocId: docId,
+    );
+  }
+
+  // hủy tất cả noti liên quan task
   Future<void> _cancelAllTaskNotifs(String docId) async {
-    // tối đa 3 reminders
     for (int i = 0; i <= 3; i++) {
       await NotificationService.instance.cancel(_notifId(docId, i));
     }
@@ -313,92 +258,77 @@ class TaskService {
     await NotificationService.instance.cancel(_notifId(docId, 200));
   }
 
-  // CREATE
-  Future<void> createTask({required String userId, required Task task}) async {
-    if (task.dueAt.isBefore(task.startAt)) {
-      throw Exception('End date must be after start date');
-    }
+  // tạo
 
+  Future<void> createTask({required String userId, required Task task}) async {
     final docId = await _repo.addTask(userId: userId, task: task);
 
-    // Thông báo “tạo công việc”
+    final title = 'Đã tạo ${task.title}';
+    final body = task.title;
+
     await NotificationService.instance.showNow(
       id: _notifId(docId, 999),
-      title: 'Đã tạo công việc',
-      body: task.title,
+      title: title,
+      body: body,
       channelId: NotificationService.chGeneral,
       channelName: 'General',
-      channelDesc: 'General notifications',
+      channelDesc: 'General',
     );
+
     await NotificationService.instance.saveToFirestore(
       userId: userId,
-      title: 'Đã tạo công việc',
-      body: task.title,
+      title: title,
+      body: body,
       type: 'create',
       createdAt: DateTime.now(),
       taskDocId: docId,
     );
 
-    // Schedule start/reminder/deadline/overdue
     await _scheduleStart(userId: userId, docId: docId, task: task);
     await _scheduleReminders(userId: userId, docId: docId, task: task);
     await _scheduleDeadline(userId: userId, docId: docId, task: task);
-
-    await _analytics.logEvent(
-      name: 'create_task',
-      parameters: {'has_reminder': task.remindAt.isNotEmpty ? 1 : 0},
-    );
   }
 
-  // UPDATE
+  // cập nhật
   Future<void> updateTask({
     required String userId,
     required String docId,
     required Task task,
   }) async {
-    if (task.dueAt.isBefore(task.startAt)) {
-      throw Exception('End date must be after start date');
-    }
-
+    final old = await _repo.getTaskById(docId: docId);
     await _repo.updateTask(docId: docId, task: task);
 
-    // thông báo “cập nhật tiến độ” (mỗi lần update)
-    final pTitle = 'Đã cập nhật tiến độ';
-    final pBody = '${task.title}: ${task.progress}%';
-
+    final title = 'Đã cập nhật ${task.title}';
+    final body = task.title;
     await NotificationService.instance.showNow(
       id: _notifId(docId, 888),
-      title: pTitle,
-      body: pBody,
+      title: title,
+      body: body,
       channelId: NotificationService.chProgress,
-      channelName: 'Progress',
-      channelDesc: 'Progress updates',
+      channelName: 'Update',
+      channelDesc: 'Update',
     );
 
     await NotificationService.instance.saveToFirestore(
       userId: userId,
-      title: pTitle,
-      body: pBody,
-      type: 'progress',
+      title: title,
+      body: body,
+      type: 'update',
       createdAt: DateTime.now(),
       taskDocId: docId,
     );
 
-    // cancel + reschedule lịch
     await _cancelAllTaskNotifs(docId);
     await _scheduleStart(userId: userId, docId: docId, task: task);
     await _scheduleReminders(userId: userId, docId: docId, task: task);
     await _scheduleDeadline(userId: userId, docId: docId, task: task);
 
-    if (task.progress == 100) {
-      await _analytics.logEvent(
-        name: 'complete_task',
-        parameters: {'due_date': task.dueAt.toIso8601String()},
-      );
+    if (task.progress == 100 && old?.progress != 100) {
+      await _analytics.logEvent(name: 'complete_task');
     }
   }
 
-  //DELETE
+  // xóa
   Future<void> deleteTask({
     required String userId,
     required String docId,
@@ -407,15 +337,16 @@ class TaskService {
     await _repo.deleteTask(docId);
     await _cancelAllTaskNotifs(docId);
 
+    final title = 'Đã xoá ${task.title}';
+    final body = task.title;
+
     await NotificationService.instance.saveToFirestore(
       userId: userId,
-      title: 'Đã xoá công việc',
-      body: task.title,
+      title: title,
+      body: body,
       type: 'delete',
       createdAt: DateTime.now(),
       taskDocId: docId,
     );
-
-    await _analytics.logEvent(name: 'delete_task');
   }
 }
