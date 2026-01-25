@@ -45,7 +45,10 @@ class NotificationScreen extends StatelessWidget {
         ],
       ),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: _col.orderBy('createdAt', descending: true).snapshots(),
+        stream: _col
+            .where('visibleAt', isLessThanOrEqualTo: Timestamp.now())
+            .orderBy('createdAt', descending: true)
+            .snapshots(),
         builder: (context, snap) {
           if (snap.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());

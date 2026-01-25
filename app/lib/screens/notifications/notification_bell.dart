@@ -21,9 +21,11 @@ class NotificationBell extends StatelessWidget {
 
   Stream<int> _unreadCount() {
     return _col
-        .where('isRead', isEqualTo: false)
+        .where('visibleAt', isLessThanOrEqualTo: Timestamp.now())
         .snapshots()
-        .map((s) => s.docs.length);
+        .map((snapshot) {
+          return snapshot.docs.where((d) => d.data()['isRead'] == false).length;
+        });
   }
 
   @override
