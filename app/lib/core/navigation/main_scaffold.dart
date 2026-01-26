@@ -28,7 +28,7 @@ class _MainScaffoldState extends State<MainScaffold> {
   // dùng để rebuild tab khi tạo task xong
   int _refreshSeed = 0;
 
-  // ✅ mỗi tab 1 navigator stack riêng
+  //mỗi tab 1 navigator stack riêng
   final _navKeys = List.generate(4, (_) => GlobalKey<NavigatorState>());
 
   @override
@@ -42,16 +42,16 @@ class _MainScaffoldState extends State<MainScaffold> {
   }
 
   Future<void> _openCreate() async {
-    // ✅ đẩy create lên “root” để che toàn bộ (bottom vẫn nằm dưới route root)
     final created = await Navigator.of(
       context,
+      rootNavigator: true,
     ).push(MaterialPageRoute(builder: (_) => const TaskCreateScreen()));
 
     if (created == true) {
       setState(() {
         _refreshSeed++;
         _currentIndex = 0; // quay về Home
-        // reset stack của tab hiện tại (tuỳ bạn, có thể bỏ)
+        // reset stack của tab hiện tại
         for (final k in _navKeys) {
           k.currentState?.popUntil((r) => r.isFirst);
         }
@@ -66,27 +66,21 @@ class _MainScaffoldState extends State<MainScaffold> {
     }
 
     // nếu bấm lại đúng tab hiện tại -> pop về root của tab đó
-    final realIndex = _mapIndex(index);
     final currentReal = _mapIndex(_currentIndex);
-
-    if (realIndex == currentReal) {
-      _navKeys[realIndex].currentState?.popUntil((r) => r.isFirst);
-      return;
-    }
+    _navKeys[currentReal].currentState?.popUntil((r) => r.isFirst);
 
     setState(() => _currentIndex = index);
   }
 
-  // vì có nút + ở giữa, ta map index về 4 tab thật (0..3)
   int _mapIndex(int bottomIndex) {
     // bottomIndex: 0 Home, 1 Calendar, 2 +, 3 Stats, 4 Profile
     if (bottomIndex <= 1) return bottomIndex; // 0,1
     if (bottomIndex >= 3) return bottomIndex - 1; // 3->2, 4->3
-    return 0; // không dùng cho index=2
+    return 0;
   }
 
   Widget _buildTabNavigator({
-    required int tabIndex, // 0..3 (Home/Calendar/Stats/Profile)
+    required int tabIndex, // (Home/Calendar/Stats/Profile)
     required Widget root,
   }) {
     return Navigator(
@@ -129,7 +123,7 @@ class _MainScaffoldState extends State<MainScaffold> {
             ),
           ),
 
-          // ✅ bottom luôn nằm “trên cùng”
+          //bottom
           Positioned(
             left: 0,
             right: 0,
