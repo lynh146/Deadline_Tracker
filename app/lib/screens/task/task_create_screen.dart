@@ -358,6 +358,7 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
                       Expanded(
                         child: SliderTheme(
                           data: SliderTheme.of(context).copyWith(
+                            showValueIndicator: ShowValueIndicator.never,
                             activeTrackColor: progressColor,
                             thumbColor: progressColor,
                             overlayColor: progressColor.withOpacity(0.15),
