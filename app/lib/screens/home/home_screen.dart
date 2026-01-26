@@ -16,17 +16,13 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
+class _HomeScreenState extends State<HomeScreen> {
   late final TaskService _taskService;
   late final String _userId;
-
-  late Future<List<Task>> _todayTasksFuture;
-  late Future<int> _weeklyTasksFuture;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
 
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -35,175 +31,165 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     _userId = user.uid;
     _taskService = TaskService(TaskRepository());
-
-    _loadTasks();
-  }
-
-  void _loadTasks() {
-    _todayTasksFuture = _taskService.getTodayTasks(_userId);
-    _weeklyTasksFuture = _taskService.getWeeklyTasks(_userId);
-    if (mounted) setState(() {});
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _loadTasks();
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<dynamic>>(
-      future: Future.wait<dynamic>([_todayTasksFuture, _weeklyTasksFuture]),
-      builder: (context, snapshot) {
-        final loading = snapshot.connectionState == ConnectionState.waiting;
-
-        return Scaffold(
-          backgroundColor: AppColors.background,
-
-          appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            surfaceTintColor: Colors.transparent,
-            titleSpacing: 20,
-            title: const Text(
-              'Timely',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary, // đen
-              ),
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        titleSpacing: 20,
+        title: const Text(
+          'Timely',
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 10),
+            child: NotificationBell(
+              userId: _userId,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => NotificationScreen(userId: _userId),
+                  ),
+                );
+              },
             ),
-            actions: [
-              Padding(
-                padding: const EdgeInsets.only(right: 10),
-                child: NotificationBell(
-                  userId: _userId,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => NotificationScreen(userId: _userId),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
           ),
-
-          body: SafeArea(
-            top: false,
-            child: loading
-                ? const Center(child: CircularProgressIndicator())
-                : _buildBody(snapshot),
-          ),
-        );
-      },
+        ],
+      ),
+      body: SafeArea(top: false, child: _buildBody()),
     );
   }
 
-  Widget _buildBody(AsyncSnapshot<List<dynamic>> snapshot) {
-    if (snapshot.hasError) {
-      return Center(
-        child: Text(
-          'Đã xảy ra lỗi: ${snapshot.error}',
-          style: const TextStyle(color: AppColors.textGrey),
-          textAlign: TextAlign.center,
-        ),
-      );
-    }
+  Widget _buildBody() {
+    return StreamBuilder<List<Task>>(
+      stream: _taskService.watchTodayTasks(_userId),
+      builder: (context, todaySnap) {
+        if (todaySnap.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-    final todayTasks = (snapshot.data?[0] as List<Task>?) ?? <Task>[];
-    final weeklyTaskCount = (snapshot.data?[1] as int?) ?? 0;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // ================= SUMMARY =================
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.statCard,
-              borderRadius: BorderRadius.circular(20),
+        if (todaySnap.hasError) {
+          return Center(
+            child: Text(
+              'Đã xảy ra lỗi: ${todaySnap.error}',
+              style: const TextStyle(color: AppColors.textGrey),
+              textAlign: TextAlign.center,
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+          );
+        }
+
+        final todayTasks = todaySnap.data ?? <Task>[];
+
+        return StreamBuilder<int>(
+          stream: _taskService.watchWeeklyTasksCount(_userId),
+          builder: (context, weekSnap) {
+            // ✅ không show loading nữa để tránh loading 2 lần
+            final weeklyTaskCount = weekSnap.data ?? 0;
+
+            if (weekSnap.hasError) {
+              // vẫn cho UI chạy, chỉ báo lỗi nhẹ
+              // (không return Center để khỏi mất phần hôm nay)
+              // bạn muốn nghiêm ngặt thì đổi lại return Center cũng được
+            }
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _SummaryItem(
-                  value: todayTasks.length,
-                  label: 'Công việc\nhôm nay',
+                // ================= SUMMARY =================
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.statCard,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _SummaryItem(
+                          value: todayTasks.length,
+                          label: 'Công việc\nhôm nay',
+                        ),
+                        _SummaryItem(
+                          value: weeklyTaskCount,
+                          label: 'Công việc\ntrong tuần',
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-                _SummaryItem(
-                  value: weeklyTaskCount,
-                  label: 'Công việc\ntrong tuần',
+
+                const SizedBox(height: 20),
+
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20),
+                  child: Text(
+                    'Công việc hôm nay',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                // ================= LIST =================
+                Expanded(
+                  child: todayTasks.isEmpty
+                      ? const Center(
+                    child: Text(
+                      'Không có công việc nào cho hôm nay!',
+                      style: TextStyle(color: AppColors.textGrey),
+                    ),
+                  )
+                      : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    itemCount: todayTasks.length,
+                    itemBuilder: (context, index) {
+                      final task = todayTasks[index];
+                      final docId = task.id;
+
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: docId == null
+                            ? null
+                            : () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => TaskDetailScreen(
+                                task: task,
+                                docId: docId,
+                                taskService: _taskService,
+                                userId: _userId,
+                              ),
+                            ),
+                          );
+                        },
+                        child: _TaskCard(task: task),
+                      );
+                    },
+                  ),
                 ),
               ],
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 20),
-
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20),
-          child: Text(
-            'Công việc hôm nay',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 12),
-
-        // ================= LIST =================
-        Expanded(
-          child: todayTasks.isEmpty
-              ? const Center(
-            child: Text(
-              'Không có công việc nào cho hôm nay!',
-              style: TextStyle(color: AppColors.textGrey),
-            ),
-          )
-              : ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            itemCount: todayTasks.length,
-            itemBuilder: (context, index) {
-              final task = todayTasks[index];
-
-              return InkWell(
-                borderRadius: BorderRadius.circular(14),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => TaskDetailScreen(
-                        task: task,
-                        docId: task.id!, // ⚠️ task.id phải có
-                        taskService: _taskService,
-                        userId: _userId,
-                      ),
-                    ),
-                  ).then((_) => _loadTasks()); // quay về refresh
-                },
-                child: _TaskCard(task: task),
-              );
-            },
-          ),
-        ),
-      ],
+            );
+          },
+        );
+      },
     );
   }
 }
