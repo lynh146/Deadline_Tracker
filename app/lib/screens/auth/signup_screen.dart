@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/theme/app_colors.dart';
 import '../../services/auth_service.dart';
 import 'signin_screen.dart';
@@ -19,31 +18,100 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _pass = TextEditingController();
   final _confirmPass = TextEditingController();
 
+  final _fnName = FocusNode();
+  final _fnEmail = FocusNode();
+  final _fnPass = FocusNode();
+  final _fnConfirm = FocusNode();
+
+  bool _touchedName = false;
+  bool _touchedEmail = false;
+  bool _touchedPass = false;
+  bool _touchedConfirm = false;
+
   bool _agree = false;
   bool _loading = false;
   bool _showPassword = false;
 
-  bool get _passwordMatch =>
-      _pass.text.isNotEmpty &&
-      _confirmPass.text.isNotEmpty &&
-      _pass.text == _confirmPass.text;
+  // ===== RULES =====
+  bool _isGmail(String email) =>
+      RegExp(r'^[^\s@]+@gmail\.com$').hasMatch(email.trim().toLowerCase());
 
-  bool get _isValid =>
-      _name.text.isNotEmpty &&
-      _email.text.isNotEmpty &&
-      _passwordMatch &&
-      _agree &&
-      !_loading;
+  bool _isStrongPassword(String s) {
+    return RegExp(
+      r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{6,}$',
+    ).hasMatch(s);
+  }
+
+  String? _validateName(String v) {
+    if (v.trim().isEmpty) return 'Vui lòng nhập họ và tên';
+    return null;
+  }
+
+  String? _validateEmail(String v) {
+    final val = v.trim();
+    if (val.isEmpty) return 'Vui lòng nhập email';
+    if (!_isGmail(val)) return 'Email không đúng định dạng';
+    return null;
+  }
+
+  String? _validatePass(String v) {
+    if (v.isEmpty) return 'Vui lòng nhập mật khẩu';
+    if (!_isStrongPassword(v)) {
+      return 'Mật khẩu phải bao gồm: \n- Ít nhất 6 ký tự\n- Chữ hoa, chữ thường\n- Số\n- Ký tự đặc biệt';
+    }
+    return null;
+  }
+
+  String? _validateConfirm(String v) {
+    if (v.isEmpty) return 'Vui lòng nhập lại mật khẩu';
+    if (v != _pass.text) return 'Mật khẩu không khớp';
+    return null;
+  }
+
+  bool get _canSubmit {
+    return _validateName(_name.text) == null &&
+        _validateEmail(_email.text) == null &&
+        _validatePass(_pass.text) == null &&
+        _validateConfirm(_confirmPass.text) == null &&
+        _agree &&
+        !_loading;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+
+    _fnName.addListener(() {
+      if (_fnName.hasFocus && !_touchedName) {
+        setState(() => _touchedName = true);
+      }
+    });
+
+    _fnEmail.addListener(() {
+      if (_fnEmail.hasFocus && !_touchedEmail) {
+        setState(() => _touchedEmail = true);
+      }
+    });
+
+    _fnPass.addListener(() {
+      if (_fnPass.hasFocus && !_touchedPass) {
+        setState(() => _touchedPass = true);
+      }
+    });
+
+    _fnConfirm.addListener(() {
+      if (_fnConfirm.hasFocus && !_touchedConfirm) {
+        setState(() => _touchedConfirm = true);
+      }
+    });
+  }
 
   Future<void> _submit() async {
     setState(() => _loading = true);
-
     try {
-      await _auth.signUpWithEmail(_email.text.trim(), _pass.text.trim());
+      await _auth.signUpWithEmail(_email.text, _pass.text);
 
       if (!mounted) return;
-
-      // signup → signin + tb verify email
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -51,41 +119,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
         ),
       );
     } catch (e) {
-      String message = 'Đăng ký thất bại';
-
-      if (e is FirebaseAuthException) {
-        switch (e.code) {
-          case 'email-already-in-use':
-            message = 'Email này đã được đăng ký';
-            break;
-          case 'invalid-email':
-            message = 'Email không hợp lệ';
-            break;
-          case 'weak-password':
-            message = 'Mật khẩu phải có ít nhất 6 ký tự';
-            break;
-          default:
-            message = e.message ?? message;
-        }
-      }
-
       if (!mounted) return;
-
+      final msg = e.toString().replaceFirst('Exception: ', '');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          action: e is FirebaseAuthException && e.code == 'email-already-in-use'
-              ? SnackBarAction(
-                  label: 'Đăng nhập',
-                  onPressed: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (_) => const SignInScreen()),
-                    );
-                  },
-                )
-              : null,
-        ),
+        SnackBar(content: Text(msg.isEmpty ? 'Đăng ký thất bại' : msg)),
       );
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -93,12 +130,31 @@ class _SignUpScreenState extends State<SignUpScreen> {
   }
 
   @override
+  void dispose() {
+    _name.dispose();
+    _email.dispose();
+    _pass.dispose();
+    _confirmPass.dispose();
+    _fnName.dispose();
+    _fnEmail.dispose();
+    _fnPass.dispose();
+    _fnConfirm.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final nameErr = _touchedName ? _validateName(_name.text) : null;
+    final emailErr = _touchedEmail ? _validateEmail(_email.text) : null;
+    final passErr = _touchedPass ? _validatePass(_pass.text) : null;
+    final confirmErr = _touchedConfirm
+        ? _validateConfirm(_confirmPass.text)
+        : null;
+
     return Scaffold(
       backgroundColor: AppColors.surface,
       body: Column(
         children: [
-          //HEADER
           Container(
             height: 220,
             width: double.infinity,
@@ -112,7 +168,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
               ),
             ),
           ),
-
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
@@ -128,23 +183,37 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  _input(_name, 'Họ và tên'),
-                  const SizedBox(height: 12),
-                  _input(_email, 'Email'),
+                  _textField(
+                    controller: _name,
+                    focusNode: _fnName,
+                    hint: 'Họ và tên',
+                    errorText: nameErr,
+                  ),
                   const SizedBox(height: 12),
 
-                  _passwordField(_pass, 'Mật khẩu'),
+                  _textField(
+                    controller: _email,
+                    focusNode: _fnEmail,
+                    hint: 'Email',
+                    keyboardType: TextInputType.emailAddress,
+                    errorText: emailErr,
+                  ),
                   const SizedBox(height: 12),
 
-                  _passwordField(_confirmPass, 'Nhập lại mật khẩu'),
-                  if (_confirmPass.text.isNotEmpty && !_passwordMatch)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 6),
-                      child: Text(
-                        'Mật khẩu không khớp',
-                        style: TextStyle(color: Colors.red, fontSize: 12),
-                      ),
-                    ),
+                  _passwordField(
+                    controller: _pass,
+                    focusNode: _fnPass,
+                    hint: 'Mật khẩu',
+                    errorText: passErr,
+                  ),
+                  const SizedBox(height: 12),
+
+                  _passwordField(
+                    controller: _confirmPass,
+                    focusNode: _fnConfirm,
+                    hint: 'Nhập lại mật khẩu',
+                    errorText: confirmErr,
+                  ),
 
                   const SizedBox(height: 12),
 
@@ -170,9 +239,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     width: double.infinity,
                     height: 48,
                     child: ElevatedButton(
-                      onPressed: _isValid ? _submit : null,
+                      onPressed: _canSubmit ? _submit : null,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: _isValid
+                        backgroundColor: _canSubmit
                             ? AppColors.primary
                             : AppColors.disabled,
                         shape: RoundedRectangleBorder(
@@ -195,7 +264,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     ),
                   ),
 
-                  //LINK TO SIGN IN
                   const SizedBox(height: 24),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -223,7 +291,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 24),
                 ],
               ),
@@ -234,23 +301,36 @@ class _SignUpScreenState extends State<SignUpScreen> {
     );
   }
 
-  //HELPERS
-
-  Widget _input(TextEditingController c, String hint) {
+  Widget _textField({
+    required TextEditingController controller,
+    required FocusNode focusNode,
+    required String hint,
+    String? errorText,
+    TextInputType? keyboardType,
+  }) {
     return TextField(
-      controller: c,
+      controller: controller,
+      focusNode: focusNode,
+      keyboardType: keyboardType,
       onChanged: (_) => setState(() {}),
-      decoration: _decoration(hint),
+      decoration: _decoration(hint, errorText: errorText),
     );
   }
 
-  Widget _passwordField(TextEditingController c, String hint) {
+  Widget _passwordField({
+    required TextEditingController controller,
+    required FocusNode focusNode,
+    required String hint,
+    String? errorText,
+  }) {
     return TextField(
-      controller: c,
+      controller: controller,
+      focusNode: focusNode,
       obscureText: !_showPassword,
       onChanged: (_) => setState(() {}),
       decoration: _decoration(
         hint,
+        errorText: errorText,
         suffix: IconButton(
           icon: Icon(
             _showPassword ? Icons.visibility : Icons.visibility_off,
@@ -262,20 +342,30 @@ class _SignUpScreenState extends State<SignUpScreen> {
     );
   }
 
-  InputDecoration _decoration(String hint, {Widget? suffix}) {
+  InputDecoration _decoration(
+    String hint, {
+    Widget? suffix,
+    String? errorText,
+  }) {
     return InputDecoration(
       hintText: hint,
       filled: true,
       fillColor: AppColors.white,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       suffixIcon: suffix,
+      errorText: errorText,
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.border),
+        borderSide: BorderSide(
+          color: errorText == null ? AppColors.border : Colors.red,
+        ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.primary, width: 1.4),
+        borderSide: BorderSide(
+          color: errorText == null ? AppColors.primary : Colors.red,
+          width: 1.4,
+        ),
       ),
     );
   }
