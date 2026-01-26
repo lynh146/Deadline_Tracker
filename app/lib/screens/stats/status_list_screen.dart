@@ -28,9 +28,8 @@ class StatusListScreen extends StatefulWidget {
 }
 
 class _StatusListScreenState extends State<StatusListScreen> {
-  int _tab = 2;
-
-  int _dueSoonTab = 1;
+  int _tab = 2; // 0 tuần, 1 tháng, 2 tất cả
+  int _dueSoonTab = 1; // 0:1d, 1:3d, 2:5d
 
   DateTime _startOfDay(DateTime d) => DateTime(d.year, d.month, d.day);
 
@@ -66,18 +65,24 @@ class _StatusListScreenState extends State<StatusListScreen> {
     return tasks;
   }
 
-  Future<List<Task>> _loadTasks() {
+  Stream<List<Task>> _watchTasks() {
+    final base = widget.taskService.watchAllTasks(widget.userId);
+
     if (widget.type == StatusListType.dueSoon) {
       final days = _dueSoonTab == 0 ? 1 : (_dueSoonTab == 1 ? 3 : 5);
-      return widget.taskService.getDueSoonTasks(widget.userId, days: days);
+      return base.map(
+        (tasks) => widget.taskService.filterDueSoon(tasks, days: days),
+      );
     }
 
     if (widget.type == StatusListType.notStarted) {
-      return widget.taskService.getNotStartedTasks(widget.userId);
+      return base.map((tasks) => widget.taskService.filterNotStarted(tasks));
     }
 
     // status
-    return widget.taskService.getTasksByStatus(widget.userId, widget.status!);
+    return base.map(
+      (tasks) => widget.taskService.filterByStatus(tasks, widget.status!),
+    );
   }
 
   @override
@@ -154,13 +159,16 @@ class _StatusListScreenState extends State<StatusListScreen> {
             ),
           ),
 
-          // 2. LIST VIEW
+          // 2. LIST VIEW (✅ StreamBuilder)
           Expanded(
-            child: FutureBuilder<List<Task>>(
-              future: _loadTasks(),
+            child: StreamBuilder<List<Task>>(
+              stream: _watchTasks(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Center(child: Text("Lỗi: ${snapshot.error}"));
                 }
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
                   return const Center(child: Text("Không có công việc nào."));
@@ -168,8 +176,6 @@ class _StatusListScreenState extends State<StatusListScreen> {
 
                 List<Task> tasks = snapshot.data!;
 
-                // dueSoon: service đã lọc đúng NGÀY + sort rồi
-                // còn lại: lọc tuần/tháng/tất cả ở đây
                 if (!isDueSoon) {
                   tasks = _applyWeekMonthAllFilter(tasks);
                 }
@@ -183,17 +189,21 @@ class _StatusListScreenState extends State<StatusListScreen> {
                   itemCount: tasks.length,
                   itemBuilder: (_, i) => TaskItemCard(
                     task: tasks[i],
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => TaskDetailScreen(
-                          task: tasks[i],
-                          docId: tasks[i].id!,
-                          taskService: widget.taskService,
-                          userId: widget.userId,
+                    onTap: () {
+                      final id = tasks[i].id;
+                      if (id == null) return; // tránh crash
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => TaskDetailScreen(
+                            task: tasks[i],
+                            docId: id,
+                            taskService: widget.taskService,
+                            userId: widget.userId,
+                          ),
                         ),
-                      ),
-                    ).then((_) => setState(() {})),
+                      );
+                    },
                   ),
                 );
               },
@@ -205,9 +215,6 @@ class _StatusListScreenState extends State<StatusListScreen> {
   }
 }
 
-// ==========================================
-// CLASS TaskItemCard (COPY Y HỆT BÊN TRÊN)
-// ==========================================
 class TaskItemCard extends StatelessWidget {
   final Task task;
   final VoidCallback onTap;
