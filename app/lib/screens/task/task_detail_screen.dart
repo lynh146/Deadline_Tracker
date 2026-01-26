@@ -7,7 +7,7 @@ import 'task_update_screen.dart';
 
 class TaskDetailScreen extends StatelessWidget {
   final Task task;
-  final String docId; // Cần ID string để gọi API update/delete
+  final String docId;
   final TaskService taskService;
   final String userId;
 
@@ -22,13 +22,13 @@ class TaskDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background, // Màu nền #E1D0FF
+      backgroundColor: AppColors.background,   #E1D0FF
       appBar: AppBar(
         title: const Text(
           "Chi tiết",
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            // 1. SỬA MÀU CHỮ THÀNH ĐEN TẠI ĐÂY
+             
             color: Colors.black,
           ),
         ),
@@ -38,7 +38,7 @@ class TaskDetailScreen extends StatelessWidget {
         leading: const BackButton(color: Colors.black),
       ),
 
-      // 2. SỬA BODY: Thay Center bằng SingleChildScrollView để nội dung nằm cao lên
+      
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
 

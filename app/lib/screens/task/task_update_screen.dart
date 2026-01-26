@@ -85,7 +85,6 @@ class _TaskUpdateScreenState extends State<TaskUpdateScreen> {
     return ok == true;
   }
 
-  // ====== TIME PICKER (GIỐNG TRANG TẠO) ======
   Future<TimeOfDay?> _showCupertinoTimePicker(
     BuildContext context,
     TimeOfDay initial,
@@ -197,12 +196,10 @@ class _TaskUpdateScreenState extends State<TaskUpdateScreen> {
       if (isStartDate) {
         _startDate = selectedDateTime;
 
-        // nếu start > end thì reset end
         if (_endDate != null && _startDate!.isAfter(_endDate!)) {
           _endDate = null;
         }
       } else {
-        // end không được trước start
         if (_startDate != null && selectedDateTime.isBefore(_startDate!)) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -220,7 +217,6 @@ class _TaskUpdateScreenState extends State<TaskUpdateScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // màu slider theo rule chung
     final previewTask = Task(
       id: widget.task.id,
       title: widget.task.title,
@@ -249,7 +245,6 @@ class _TaskUpdateScreenState extends State<TaskUpdateScreen> {
           centerTitle: true,
           backgroundColor: Colors.transparent,
           elevation: 0,
-          // ✅ sửa nút back để cũng hỏi confirm
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.black),
             onPressed: () async {
@@ -281,7 +276,6 @@ class _TaskUpdateScreenState extends State<TaskUpdateScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // ====== DATE TIME PICKERS (GIỐNG TRANG TẠO) ======
                 Row(
                   children: [
                     Expanded(
