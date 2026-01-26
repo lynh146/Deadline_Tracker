@@ -48,14 +48,26 @@ class _TaskUpdateScreenState extends State<TaskUpdateScreen> {
     }
   }
 
-  Color get _sliderColor {
-    if (_currentProgress >= 100) return AppColors.progressHigh;
-    if (_currentProgress < 30) return AppColors.progressLow;
-    return AppColors.progressMedium;
+  @override
+  void dispose() {
+    _descController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    // ✅ DÙNG CHUNG RULE MÀU từ Task.progressColor (không tự if/else nữa)
+    final previewTask = Task(
+      id: widget.task.id,
+      title: widget.task.title,
+      description: _descController.text,
+      startAt: widget.task.startAt,
+      dueAt: widget.task.dueAt,
+      remindAt: widget.task.remindAt,
+      progress: _currentProgress.toInt(),
+    );
+    final Color sliderColor = previewTask.progressColor;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -66,7 +78,6 @@ class _TaskUpdateScreenState extends State<TaskUpdateScreen> {
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
-
         leading: const BackButton(color: AppColors.textPrimary),
       ),
       body: SingleChildScrollView(
@@ -127,17 +138,22 @@ class _TaskUpdateScreenState extends State<TaskUpdateScreen> {
 
                     SliderTheme(
                       data: SliderTheme.of(context).copyWith(
+                        showValueIndicator: ShowValueIndicator.never,
                         trackHeight: 8,
                         thumbShape: const RoundSliderThumbShape(
                           enabledThumbRadius: 10,
                         ),
+                        activeTrackColor: sliderColor,
+                        thumbColor: sliderColor,
+                        overlayColor: sliderColor.withOpacity(0.15),
+                        inactiveTrackColor: Colors.grey[300],
                       ),
                       child: Slider(
                         value: _currentProgress,
                         min: 0,
                         max: 100,
-                        activeColor: _sliderColor,
-                        inactiveColor: Colors.grey[300],
+                        divisions: 100,
+                        label: "${_currentProgress.toInt()}%",
                         onChanged: (val) =>
                             setState(() => _currentProgress = val),
                       ),

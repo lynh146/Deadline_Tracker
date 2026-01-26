@@ -99,6 +99,9 @@ class TaskDetailScreen extends StatelessWidget {
                       child: LinearProgressIndicator(
                         value: task.progress / 100.0,
                         backgroundColor: AppColors.progressBg,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          task.progressColor,
+                        ),
                         color: task.progressColor,
                         minHeight: 10,
                       ),
