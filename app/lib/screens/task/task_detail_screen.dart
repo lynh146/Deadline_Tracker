@@ -35,7 +35,7 @@ class TaskDetailScreen extends StatelessWidget {
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: const BackButton(color: AppColors.textPrimary),
+        leading: const BackButton(color: Colors.black),
       ),
 
       // 2. SỬA BODY: Thay Center bằng SingleChildScrollView để nội dung nằm cao lên
@@ -99,6 +99,9 @@ class TaskDetailScreen extends StatelessWidget {
                       child: LinearProgressIndicator(
                         value: task.progress / 100.0,
                         backgroundColor: AppColors.progressBg,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          task.progressColor,
+                        ),
                         color: task.progressColor,
                         minHeight: 10,
                       ),
@@ -135,17 +138,18 @@ class TaskDetailScreen extends StatelessWidget {
 
               ElevatedButton(
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => TaskUpdateScreen(
-                        task: task,
-                        docId: docId,
-                        taskService: taskService,
-                        userId: userId,
-                      ),
-                    ),
-                  ).then((_) => Navigator.pop(context));
+                  Navigator.of(context, rootNavigator: true)
+                      .push(
+                        MaterialPageRoute(
+                          builder: (_) => TaskUpdateScreen(
+                            task: task,
+                            docId: docId,
+                            taskService: taskService,
+                            userId: userId,
+                          ),
+                        ),
+                      )
+                      .then((_) => Navigator.pop(context, true));
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.update,

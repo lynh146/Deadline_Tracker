@@ -18,7 +18,6 @@ class AuthService {
       await cred.user!.sendEmailVerification();
     }
 
-    // logout để verify trước khi login
     await _auth.signOut();
   }
 
@@ -47,6 +46,8 @@ class AuthService {
         return 'Tài khoản đã bị vô hiệu hóa';
       case 'too-many-requests':
         return 'Thao tác quá nhiều lần, vui lòng thử lại sau';
+      case 'network-request-failed':
+        return 'Lỗi mạng. Vui lòng kiểm tra Internet';
       default:
         return 'Đăng nhập thất bại. Vui lòng kiểm tra lại';
     }
@@ -79,8 +80,25 @@ class AuthService {
 
   Future<void> signOut() => _auth.signOut();
 
-  // quên mật khẩu
+  // QUÊN MẬT KHẨU (✅ map lỗi rõ)
   Future<void> sendPasswordResetEmail(String email) async {
-    await _auth.sendPasswordResetEmail(email: email);
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+    } on FirebaseAuthException catch (e) {
+      switch (e.code) {
+        case 'invalid-email':
+          throw 'Email không đúng định dạng';
+        case 'user-not-found':
+          throw 'Email chưa được đăng ký';
+        case 'too-many-requests':
+          throw 'Thao tác quá nhiều lần, vui lòng thử lại sau';
+        case 'network-request-failed':
+          throw 'Lỗi mạng. Vui lòng kiểm tra Internet';
+        default:
+          throw e.message ?? 'Không gửi được email đặt lại mật khẩu';
+      }
+    } catch (_) {
+      throw 'Không gửi được email đặt lại mật khẩu';
+    }
   }
 }
