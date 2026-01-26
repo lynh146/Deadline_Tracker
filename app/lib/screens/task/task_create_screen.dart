@@ -24,6 +24,8 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
   final _descriptionController = TextEditingController();
   final _taskService = TaskService(TaskRepository());
 
+  bool _dirty = false;
+
   double _progress = 0.0;
   DateTime? _startDate;
   DateTime? _endDate;
@@ -52,6 +54,13 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
         0,
       );
     }
+
+    _titleController.addListener(() {
+      if (!_dirty) setState(() => _dirty = true);
+    });
+    _descriptionController.addListener(() {
+      if (!_dirty) setState(() => _dirty = true);
+    });
   }
 
   @override
@@ -59,6 +68,32 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
     _titleController.dispose();
     _descriptionController.dispose();
     super.dispose();
+  }
+
+  Future<bool> _confirmLeave() async {
+    if (!_dirty) return true;
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Bạn chưa lưu'),
+        content: const Text(
+          'Thoát ra sẽ mất thay đổi. Bạn có muốn thoát không?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Thoát'),
+          ),
+        ],
+      ),
+    );
+
+    return ok == true;
   }
 
   Future<TimeOfDay?> _showCupertinoTimePicker(
@@ -79,7 +114,6 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
           ),
           child: Column(
             children: [
-              // Header
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -104,12 +138,10 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
                 ),
               ),
               const Divider(height: 1),
-
-              // Spinner
               Expanded(
                 child: CupertinoDatePicker(
                   mode: CupertinoDatePickerMode.time,
-                  use24hFormat: false, // true nếu bạn muốn 24h
+                  use24hFormat: true,
                   initialDateTime: DateTime(
                     2000,
                     1,
@@ -129,71 +161,8 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
     );
   }
 
-  Future<void> _saveTask() async {
-    if (_isSaving) return;
-
-    FocusScope.of(context).unfocus();
-
-    if (!_formKey.currentState!.validate()) return;
-
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    if (_startDate == null || _endDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng chọn ngày bắt đầu và kết thúc')),
-      );
-      return;
-    }
-
-    setState(() {
-      _isSaving = true;
-    });
-
-    final remindAts = <DateTime>[];
-    if (_remind1Day) remindAts.add(_endDate!.subtract(const Duration(days: 1)));
-    if (_remind3Days)
-      remindAts.add(_endDate!.subtract(const Duration(days: 3)));
-    if (_remind5Days)
-      remindAts.add(_endDate!.subtract(const Duration(days: 5)));
-
-    try {
-      final task = Task(
-        id: null,
-        title: _titleController.text.trim(),
-        description: _descriptionController.text.trim(),
-        startAt: _startDate!,
-        dueAt: _endDate!,
-        progress: _progress.round(),
-        remindAt: remindAts,
-      );
-
-      await _taskService.createTask(userId: user.uid, task: task);
-
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đã tạo công việc thành công!')),
-      );
-      Navigator.of(context).pop(true);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Lỗi khi tạo công việc: $e')));
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSaving = false;
-        });
-      }
-    }
-  }
-
   Future<void> _selectDateTime(BuildContext context, bool isStartDate) async {
-    final initialDate = isStartDate
-        ? _startDate
-        : _endDate ?? _startDate; // Suggest end date based on start date
+    final initialDate = isStartDate ? _startDate : _endDate ?? _startDate;
 
     final pickerTheme = Theme.of(context).copyWith(
       colorScheme: const ColorScheme.light(
@@ -212,9 +181,7 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
       initialDate: initialDate ?? DateTime.now(),
       firstDate: isStartDate ? DateTime(2000) : _startDate ?? DateTime.now(),
       lastDate: DateTime(2101),
-      builder: (context, child) {
-        return Theme(data: pickerTheme, child: child!);
-      },
+      builder: (context, child) => Theme(data: pickerTheme, child: child!),
     );
 
     if (pickedDate == null) return;
@@ -225,9 +192,6 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
       context,
       initialTime,
     );
-
-    if (pickedTime == null) return;
-
     if (pickedTime == null) return;
 
     setState(() {
@@ -256,7 +220,65 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
         }
         _endDate = selectedDateTime;
       }
+
+      _dirty = true;
     });
+  }
+
+  Future<void> _saveTask() async {
+    if (_isSaving) return;
+
+    FocusScope.of(context).unfocus();
+    if (!_formKey.currentState!.validate()) return;
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    if (_startDate == null || _endDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui lòng chọn ngày bắt đầu và kết thúc')),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    final remindAts = <DateTime>[];
+    if (_remind1Day) remindAts.add(_endDate!.subtract(const Duration(days: 1)));
+    if (_remind3Days)
+      remindAts.add(_endDate!.subtract(const Duration(days: 3)));
+    if (_remind5Days)
+      remindAts.add(_endDate!.subtract(const Duration(days: 5)));
+
+    try {
+      final task = Task(
+        id: null,
+        title: _titleController.text.trim(),
+        description: _descriptionController.text.trim(),
+        startAt: _startDate!,
+        dueAt: _endDate!,
+        progress: _progress.round(),
+        remindAt: remindAts,
+      );
+
+      await _taskService.createTask(userId: user.uid, task: task);
+
+      if (!mounted) return;
+
+      _dirty = false;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đã tạo công việc thành công!')),
+      );
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Lỗi khi tạo công việc: $e')));
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   @override
@@ -275,168 +297,193 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
 
     final Color progressColor = previewTask.progressColor;
 
-    return GestureDetector(
-      onTap: () => FocusScope.of(context).unfocus(),
-      child: Scaffold(
-        resizeToAvoidBottomInset: false,
-        backgroundColor: AppColors.background,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          surfaceTintColor: Colors.transparent,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-          title: const Text(
-            'Tạo công việc',
-            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-          ),
-          actions: [
-            NotificationBell(
-              userId: userId,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => NotificationScreen(userId: userId),
-                  ),
-                );
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) async {
+        if (didPop) return;
+        final canLeave = await _confirmLeave();
+        if (canLeave && mounted) Navigator.pop(context);
+      },
+      child: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: Scaffold(
+          resizeToAvoidBottomInset: false,
+          backgroundColor: AppColors.background,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            surfaceTintColor: Colors.transparent,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
+              onPressed: () async {
+                final canLeave = await _confirmLeave();
+                if (canLeave && mounted) Navigator.of(context).pop();
               },
+            ),
+            title: const Text(
+              'Tạo công việc',
+              style: TextStyle(
+                color: Colors.black,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            actions: [
+              NotificationBell(
+                userId: userId,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => NotificationScreen(userId: userId),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+          body: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 10),
+                    _buildTextFormField(
+                      label: 'Tên công việc',
+                      hint: 'Nhập tên công việc...',
+                      controller: _titleController,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildTextFormField(
+                      label: 'Mô tả',
+                      hint: 'Mô tả chi tiết...',
+                      maxLines: 4,
+                      controller: _descriptionController,
+                      requiredField: false,
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildDateTimePicker(
+                            label: 'Ngày bắt đầu',
+                            isStart: true,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildDateTimePicker(
+                            label: 'Ngày kết thúc',
+                            isStart: false,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    const Text(
+                      'Tiến độ ban đầu',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+
+                    Row(
+                      children: [
+                        Expanded(
+                          child: SliderTheme(
+                            data: SliderTheme.of(context).copyWith(
+                              showValueIndicator: ShowValueIndicator.never,
+                              activeTrackColor: progressColor,
+                              thumbColor: progressColor,
+                              overlayColor: progressColor.withOpacity(0.15),
+                              inactiveTrackColor: AppColors.progressBg,
+                            ),
+                            child: Slider(
+                              value: _progress,
+                              min: 0,
+                              max: 100,
+                              divisions: 100,
+                              label: '${_progress.round()}%',
+                              onChanged: (double value) {
+                                setState(() {
+                                  _progress = value;
+                                  _dirty = true;
+                                });
+                              },
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '${_progress.round()}%',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+
+                    const Text(
+                      'Nhắc nhở',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+
+                    _buildReminderCheckbox(
+                      title: 'Trước 1 ngày',
+                      value: _remind1Day,
+                      onChanged: (val) => setState(() {
+                        _remind1Day = val ?? false;
+                        _dirty = true;
+                      }),
+                    ),
+                    _buildReminderCheckbox(
+                      title: 'Trước 3 ngày',
+                      value: _remind3Days,
+                      onChanged: (val) => setState(() {
+                        _remind3Days = val ?? false;
+                        _dirty = true;
+                      }),
+                    ),
+                    _buildReminderCheckbox(
+                      title: 'Trước 5 ngày',
+                      value: _remind5Days,
+                      onChanged: (val) => setState(() {
+                        _remind5Days = val ?? false;
+                        _dirty = true;
+                      }),
+                    ),
+
+                    const SizedBox(height: 80),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          persistentFooterButtons: [
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 20.0,
+                vertical: 10.0,
+              ),
+              child: ElevatedButton(
+                onPressed: _isSaving ? null : _saveTask,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                ),
+                child: _isSaving
+                    ? const CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                )
+                    : const Text(
+                  'Lưu',
+                  style: TextStyle(fontSize: 16, color: Colors.white),
+                ),
+              ),
             ),
           ],
         ),
-        body: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 10),
-                  _buildTextFormField(
-                    label: 'Tên công việc',
-                    hint: 'Nhập tên công việc...',
-                    controller: _titleController,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildTextFormField(
-                    label: 'Mô tả',
-                    hint: 'Mô tả chi tiết...',
-                    maxLines: 4,
-                    controller: _descriptionController,
-                    requiredField: false,
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildDateTimePicker(
-                          label: 'Ngày bắt đầu',
-                          isStart: true,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildDateTimePicker(
-                          label: 'Ngày kết thúc',
-                          isStart: false,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  const Text(
-                    'Tiến độ ban đầu',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-
-                  Row(
-                    children: [
-                      Expanded(
-                        child: SliderTheme(
-                          data: SliderTheme.of(context).copyWith(
-                            showValueIndicator: ShowValueIndicator.never,
-                            activeTrackColor: progressColor,
-                            thumbColor: progressColor,
-                            overlayColor: progressColor.withOpacity(0.15),
-                            inactiveTrackColor: AppColors.progressBg,
-                          ),
-                          child: Slider(
-                            value: _progress,
-                            min: 0,
-                            max: 100,
-                            divisions: 100,
-                            label: '${_progress.round()}%',
-                            onChanged: (double value) {
-                              setState(() => _progress = value);
-                            },
-                          ),
-                        ),
-                      ),
-                      Text(
-                        '${_progress.round()}%',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-
-                  const Text(
-                    'Nhắc nhở',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  _buildReminderCheckbox(
-                    title: 'Trước 1 ngày',
-                    value: _remind1Day,
-                    onChanged: (val) =>
-                        setState(() => _remind1Day = val ?? false),
-                  ),
-                  _buildReminderCheckbox(
-                    title: 'Trước 3 ngày',
-                    value: _remind3Days,
-                    onChanged: (val) =>
-                        setState(() => _remind3Days = val ?? false),
-                  ),
-                  _buildReminderCheckbox(
-                    title: 'Trước 5 ngày',
-                    value: _remind5Days,
-                    onChanged: (val) =>
-                        setState(() => _remind5Days = val ?? false),
-                  ),
-                  const SizedBox(height: 80), // Add space for the button
-                ],
-              ),
-            ),
-          ),
-        ),
-        persistentFooterButtons: [
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 20.0,
-              vertical: 10.0,
-            ),
-            child: ElevatedButton(
-              onPressed: _isSaving ? null : _saveTask,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
-              ),
-              child: _isSaving
-                  ? const CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-              )
-                  : const Text(
-                'Lưu',
-                style: TextStyle(fontSize: 16, color: Colors.white),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -483,9 +530,7 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
           ),
           validator: (value) {
             if (!requiredField) return null;
-            if (value == null || value.isEmpty) {
-              return 'Vui lòng nhập $label';
-            }
+            if (value == null || value.isEmpty) return 'Vui lòng nhập $label';
             return null;
           },
         ),
@@ -523,7 +568,9 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
             child: Center(
               child: Text(
                 date != null
-                    ? DateFormat('dd/MM/yyyy h:mm a', 'vi_VN').format(date)
+                    ? DateFormat('dd/MM/yyyy HH:mm', 'vi_VN').format(
+                  date,
+                ) // ✅ 24h
                     : 'Chọn ngày & giờ',
                 style: TextStyle(
                   fontWeight: FontWeight.w500,
