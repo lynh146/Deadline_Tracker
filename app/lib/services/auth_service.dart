@@ -7,18 +7,60 @@ class AuthService {
 
   Stream<User?> authStateChanges() => _auth.authStateChanges();
 
+  bool _isGmail(String email) {
+    final e = email.trim().toLowerCase();
+    return RegExp(r'^[^\s@]+@gmail\.com$').hasMatch(e);
+  }
+
+  //check pass
+  bool _isStrongPassword(String s) {
+    return RegExp(
+      r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{6,}$',
+    ).hasMatch(s);
+  }
+
   // EMAIL SIGN UP
   Future<void> signUpWithEmail(String email, String password) async {
-    final cred = await _auth.createUserWithEmailAndPassword(
-      email: email,
-      password: password,
-    );
+    final e = email.trim();
+    final p = password;
 
-    if (!cred.user!.emailVerified) {
-      await cred.user!.sendEmailVerification();
+    if (e.isEmpty) throw 'Vui lòng nhập email';
+    if (!_isGmail(e)) throw 'Email không đúng định dạng';
+
+    if (p.isEmpty) throw 'Vui lòng nhập mật khẩu';
+    if (!_isStrongPassword(p)) {
+      throw 'Mật khẩu >= 6 ký tự, gồm: HOA + thường + số + ký tự đặc biệt';
     }
 
-    await _auth.signOut();
+    try {
+      final cred = await _auth.createUserWithEmailAndPassword(
+        email: e,
+        password: p,
+      );
+
+      if (cred.user != null && !cred.user!.emailVerified) {
+        await cred.user!.sendEmailVerification();
+      }
+
+      await _auth.signOut();
+    } on FirebaseAuthException catch (ex) {
+      switch (ex.code) {
+        case 'email-already-in-use':
+          throw 'Email này đã được đăng ký';
+        case 'invalid-email':
+          throw 'Email không đúng định dạng';
+        case 'weak-password':
+          throw 'Mật khẩu quá yếu';
+        case 'operation-not-allowed':
+          throw 'Email/Password chưa được bật trên Firebase';
+        case 'network-request-failed':
+          throw 'Lỗi mạng. Vui lòng kiểm tra Internet';
+        default:
+          throw ex.message ?? 'Đăng ký thất bại';
+      }
+    } catch (_) {
+      throw 'Đăng ký thất bại';
+    }
   }
 
   // EMAIL SIGN IN
@@ -80,7 +122,7 @@ class AuthService {
 
   Future<void> signOut() => _auth.signOut();
 
-  // QUÊN MẬT KHẨU (✅ map lỗi rõ)
+  // QUÊN MẬT KHẨU
   Future<void> sendPasswordResetEmail(String email) async {
     try {
       await _auth.sendPasswordResetEmail(email: email);
