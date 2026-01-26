@@ -28,8 +28,8 @@ class StatusListScreen extends StatefulWidget {
 }
 
 class _StatusListScreenState extends State<StatusListScreen> {
-  int _tab = 2; // 0 tuần, 1 tháng, 2 tất cả
-  int _dueSoonTab = 1; // 0:1d, 1:3d, 2:5d
+  int _tab = 2;
+  int _dueSoonTab = 1;
 
   DateTime _startOfDay(DateTime d) => DateTime(d.year, d.month, d.day);
 
@@ -50,7 +50,6 @@ class _StatusListScreenState extends State<StatusListScreen> {
           )
           .toList();
     } else if (_tab == 1) {
-      // Tháng này
       tasks = tasks
           .where((t) => t.dueAt.month == now.month && t.dueAt.year == now.year)
           .toList();
@@ -79,7 +78,6 @@ class _StatusListScreenState extends State<StatusListScreen> {
       return base.map((tasks) => widget.taskService.filterNotStarted(tasks));
     }
 
-    // status
     return base.map(
       (tasks) => widget.taskService.filterByStatus(tasks, widget.status!),
     );
@@ -102,8 +100,8 @@ class _StatusListScreenState extends State<StatusListScreen> {
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
-        surfaceTintColor: Colors.transparent, // giảm flash đen
-        scrolledUnderElevation: 0, // giảm flash đen (Material3)
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
         leading: const BackButton(color: Colors.black),
       ),
       body: Column(
@@ -159,7 +157,6 @@ class _StatusListScreenState extends State<StatusListScreen> {
             ),
           ),
 
-          // 2. LIST VIEW (✅ StreamBuilder)
           Expanded(
             child: StreamBuilder<List<Task>>(
               stream: _watchTasks(),
@@ -191,7 +188,7 @@ class _StatusListScreenState extends State<StatusListScreen> {
                     task: tasks[i],
                     onTap: () {
                       final id = tasks[i].id;
-                      if (id == null) return; // tránh crash
+                      if (id == null) return;
                       Navigator.push(
                         context,
                         MaterialPageRoute(

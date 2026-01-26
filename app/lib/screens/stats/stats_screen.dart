@@ -22,7 +22,6 @@ class StatsScreen extends StatefulWidget {
 }
 
 class _StatsScreenState extends State<StatsScreen> {
-  // Hàm refresh để reload dữ liệu
   void _refresh() => setState(() {});
 
   @override
@@ -77,7 +76,7 @@ class _StatsScreenState extends State<StatsScreen> {
               10,
               20,
               140,
-            ), // chừa dưới cho nav + nút +
+            ), // extra bottom padding for FAB
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -225,7 +224,6 @@ class _StatsScreenState extends State<StatsScreen> {
                       ),
                       const SizedBox(height: 10),
 
-                      // ✅ realtime: không FutureBuilder nữa
                       if (dueSoonLatest.isEmpty)
                         const Padding(
                           padding: EdgeInsets.only(top: 8),
@@ -245,7 +243,6 @@ class _StatsScreenState extends State<StatsScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // --- 3. TIẾN ĐỘ CÔNG VIỆC ---
                 const Text(
                   "Tiến độ công việc",
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -287,7 +284,7 @@ class _StatsScreenState extends State<StatsScreen> {
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
     return AppBar(
-      automaticallyImplyLeading: false, // 1. Tắt nút Back tự động
+      automaticallyImplyLeading: false,
       centerTitle: false,
       title: const Padding(
         padding: EdgeInsets.only(left: 8.0),
@@ -303,8 +300,8 @@ class _StatsScreenState extends State<StatsScreen> {
 
       backgroundColor: Colors.transparent,
       elevation: 0,
-      surfaceTintColor: Colors.transparent, // giảm flash đen khi back
-      scrolledUnderElevation: 0, // giảm flash đen (Material3)
+      surfaceTintColor: Colors.transparent,
+      scrolledUnderElevation: 0,
       actions: [
         Padding(
           padding: const EdgeInsets.only(right: 10),
@@ -324,7 +321,6 @@ class _StatsScreenState extends State<StatsScreen> {
     );
   }
 
-  // ✅ sửa: nhận count thay vì Future<List<Task>>
   Widget _buildStatusBox({
     required String title,
     required int count,
@@ -474,6 +470,7 @@ class TaskItemCard extends StatelessWidget {
                     ),
                   ),
                 ),
+
                 if (task.isCompleted)
                   Icon(Icons.check_circle, color: AppColors.success, size: 20),
                 if (task.isOverdue)
