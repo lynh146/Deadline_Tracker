@@ -328,16 +328,19 @@ class _TaskCreateScreenState extends State<TaskCreateScreen> {
               ),
             ),
             actions: [
-              NotificationBell(
-                userId: userId,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => NotificationScreen(userId: userId),
-                    ),
-                  );
-                },
+              Padding(
+                padding: const EdgeInsets.only(right: 10),
+                child: NotificationBell(
+                  userId: userId,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => NotificationScreen(userId: userId),
+                      ),
+                    );
+                  },
+                ),
               ),
             ],
           ),
