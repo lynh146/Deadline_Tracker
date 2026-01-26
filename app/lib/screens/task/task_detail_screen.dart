@@ -5,9 +5,9 @@ import '../../models/deadline_task.dart';
 import '../../services/task_service.dart';
 import 'task_update_screen.dart';
 
-class TaskDetailScreen extends StatefulWidget {
+class TaskDetailScreen extends StatelessWidget {
   final Task task;
-  final String docId; // ID string để gọi update/delete
+  final String docId; // Cần ID string để gọi API update/delete
   final TaskService taskService;
   final String userId;
 
@@ -20,39 +20,38 @@ class TaskDetailScreen extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<TaskDetailScreen> createState() => _TaskDetailScreenState();
-}
-
-class _TaskDetailScreenState extends State<TaskDetailScreen> {
-  bool _isDeleting = false;
-
-  @override
   Widget build(BuildContext context) {
-    final task = widget.task;
-
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.background, // Màu nền #E1D0FF
       appBar: AppBar(
         title: const Text(
           "Chi tiết",
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            // 1. SỬA MÀU CHỮ THÀNH ĐEN TẠI ĐÂY
+            color: Colors.black,
+          ),
         ),
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: const BackButton(color: Colors.black),
       ),
+
+      // 2. SỬA BODY: Thay Center bằng SingleChildScrollView để nội dung nằm cao lên
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+
         child: Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             color: AppColors.white,
             borderRadius: BorderRadius.circular(30),
-            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10)],
+            boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+
             children: [
               Text(
                 task.title,
@@ -76,7 +75,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.detailCard,
+                  color: AppColors.detailCard, // #EDE3FF
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Column(
@@ -139,17 +138,18 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
               ElevatedButton(
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => TaskUpdateScreen(
-                        task: task,
-                        docId: widget.docId,
-                        taskService: widget.taskService,
-                        userId: widget.userId,
-                      ),
-                    ),
-                  ).then((_) => Navigator.pop(context, true)); // ✅ refresh list
+                  Navigator.of(context, rootNavigator: true)
+                      .push(
+                        MaterialPageRoute(
+                          builder: (_) => TaskUpdateScreen(
+                            task: task,
+                            docId: docId,
+                            taskService: taskService,
+                            userId: userId,
+                          ),
+                        ),
+                      )
+                      .then((_) => Navigator.pop(context, true));
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.update,
@@ -164,9 +164,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-
               TextButton(
-                onPressed: _isDeleting ? null : () => _confirmDelete(context),
+                onPressed: () => _confirmDelete(context),
                 style: TextButton.styleFrom(
                   backgroundColor: AppColors.danger,
                   minimumSize: const Size(double.infinity, 50),
@@ -174,19 +173,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     borderRadius: BorderRadius.circular(25),
                   ),
                 ),
-                child: _isDeleting
-                    ? const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text(
-                        "Xóa",
-                        style: TextStyle(color: Colors.white, fontSize: 16),
-                      ),
+                child: const Text(
+                  "Xóa",
+                  style: TextStyle(color: Colors.white, fontSize: 16),
+                ),
               ),
             ],
           ),
@@ -216,58 +206,28 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   }
 
   void _confirmDelete(BuildContext context) {
-    final task = widget.task;
-
     showDialog(
       context: context,
-      barrierDismissible: !_isDeleting,
       builder: (ctx) => AlertDialog(
         title: const Text("Xác nhận xóa"),
         content: Text("Bạn có chắc muốn xóa '${task.title}' không?"),
         actions: [
           TextButton(
-            onPressed: _isDeleting ? null : () => Navigator.pop(ctx),
+            onPressed: () => Navigator.pop(ctx),
             child: const Text("Hủy"),
           ),
           TextButton(
-            onPressed: _isDeleting
-                ? null
-                : () async {
-                    setState(() => _isDeleting = true);
-
-                    try {
-                      await widget.taskService.deleteTask(
-                        userId: widget.userId,
-                        docId: widget.docId,
-                        task: widget.task,
-                      );
-
-                      if (!mounted) return;
-
-                      Navigator.pop(ctx); // đóng dialog
-                      Navigator.pop(context, true); // ✅ về màn trước + refresh
-
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text("Đã xóa công việc thành công!"),
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
-                    } catch (e) {
-                      if (!mounted) return;
-
-                      Navigator.pop(ctx); // đóng dialog
-
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text("Xóa thất bại: $e"),
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
-
-                      setState(() => _isDeleting = false);
-                    }
-                  },
+            onPressed: () async {
+              await taskService.deleteTask(
+                userId: userId,
+                docId: docId,
+                task: task,
+              );
+              if (context.mounted) {
+                Navigator.pop(ctx);
+                Navigator.pop(context);
+              }
+            },
             child: const Text("Xóa", style: TextStyle(color: Colors.red)),
           ),
         ],
