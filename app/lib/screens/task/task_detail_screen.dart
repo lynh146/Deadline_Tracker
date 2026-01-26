@@ -100,6 +100,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       child: LinearProgressIndicator(
                         value: task.progress / 100.0,
                         backgroundColor: AppColors.progressBg,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          task.progressColor,
+                        ),
                         color: task.progressColor,
                         minHeight: 10,
                       ),
