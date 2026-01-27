@@ -189,7 +189,7 @@ lib/
 ## Demo Screenshot
 
 <p align="center">
-  <img src="/Deadline_Tracker-main/mockups/trang_ca_nhan.png" width="250"/>
+  <img src="./mockups/trang_ca_nhan.png" width="250"/>
   <img src="./mockups/trang_chu.png" width="250"/>
   <img src="./mockups/trang_lich.png" width="250"/>
   <img src="./mockups/trang_tao_dl.png" width="250"/>
