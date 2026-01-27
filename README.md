@@ -170,7 +170,6 @@ Sử dụng Local Notification để đảm bảo không quên việc:
 ```
 lib/
 ├── core/
-│   ├── database/           # Cấu hình Database nội bộ (nếu có)
 │   ├── navigation/         # Cấu hình điều hướng (Bottom Nav)
 │   └── theme/              # Giao diện chung (Màu sắc, Font)
 ├── models/                 # Khuôn mẫu dữ liệu (DeadlineTask...)
